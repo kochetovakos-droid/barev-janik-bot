@@ -21,8 +21,8 @@ SRC, OUT, DB = DATA / "src", DATA / "cards", DATA / "cards.json"
 W, IH, S = 720, 894, 170
 BLUE = (20, 51, 162)
 LINES = ["8 Pap Tagavor St, Yerevan", "courtyard · 12:00-20:00", "@barev.janik · made in Yerevan"]
-FB = ImageFont.truetype(str(BASE / "fonts/Heavy.otf"), 34)
-FM = ImageFont.truetype(str(BASE / "fonts/Medium.otf"), 21)
+FB = ImageFont.truetype(str(BASE / "Heavy.otf"), 34)
+FM = ImageFont.truetype(str(BASE / "Medium.otf"), 21)
 
 
 def qr_img():
@@ -63,7 +63,7 @@ def setup():
     for p in (SRC, OUT): p.mkdir(parents=True, exist_ok=True)
     if not DB.exists():
         ids = []
-        for f in sorted((BASE / "seed").glob("*.jpg")):
+        for f in sorted(BASE.glob("[0-9][0-9]_*.jpg")):
             cid = f.stem.split("_", 1)[1]; shutil.copy(f, SRC / f"{cid}.jpg"); ids.append(cid)
         save(ids)
     stamp = DATA / "qr.txt"; fresh = not stamp.exists() or stamp.read_text() != QR_URL
