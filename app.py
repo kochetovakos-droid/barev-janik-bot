@@ -10,6 +10,9 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import (CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup,
                            InlineQuery, InlineQueryResultPhoto, InputMediaPhoto, Message, MenuButtonWebApp, WebAppInfo)
 from catalog import Catalog
+from game import Game
+from game_rewards import Rewards
+from game_telegram import register_reward_handlers
 
 BASE = Path(__file__).parent
 TOKEN = os.environ["BOT_TOKEN"]
@@ -97,6 +100,17 @@ def is_admin(m):
 
 
 CAT = Catalog(DATA, bot, admin_chats)
+
+
+def reward_admin(event):
+    user = event.from_user
+    return bool(user) and (str(user.id) in ADMINS or (user.username or "").lower() in ADMINS)
+
+
+DATA.mkdir(parents=True, exist_ok=True)
+REWARDS = Rewards(DATA / "game-rewards.sqlite3")
+GAME = Game(REWARDS, lambda: ME["u"])
+register_reward_handlers(dp, REWARDS, bot, admin_chats, reward_admin, lambda: ME["u"])
 
 
 def card_kb(i, ids):
@@ -201,6 +215,11 @@ async def page(_):
     return web.FileResponse(BASE / "page.html")
 
 
+async def music(request):
+    track = request.match_info["track"]
+    return web.FileResponse(BASE / track, headers={"Content-Type": "audio/mpeg"})
+
+
 async def api(_):
     return web.json_response({"cards": load(), "bot": ME["u"], "v": VER})
 
@@ -216,9 +235,11 @@ async def main():
     app = web.Application()
     app.router.add_get("/", page); app.router.add_get("/api/cards", api); app.router.add_get("/cards/{cid}.jpg", card)
     CAT.routes(app)
+    GAME.routes(app)
+    app.router.add_get("/music/{track:barev-one[.]mp3|barev-two[.]mp3}", music)
     if DOMAIN:
         try:
-            await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="Catalog", web_app=WebAppInfo(url=DOMAIN + "/#shop")))
+            await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="Shoot a barev", web_app=WebAppInfo(url=DOMAIN.rstrip("/") + "/game")))
         except Exception:
             pass
     runner = web.AppRunner(app); await runner.setup()

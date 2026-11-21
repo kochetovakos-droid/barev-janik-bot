@@ -93,6 +93,17 @@
   .cards img.sel { outline-color: var(--title); transform: scale(.97); }
   .dots { display: none; }
   .pick h2 { padding-bottom: 4px; }
+  .pick:not(.shopscr):not(.prod) > .foot { margin-top: 14px; padding-top: 6px; }
+  .send.play { text-decoration: none; }
+  .talk { overflow-y: auto; }
+  .music { z-index: 7; background: var(--bg); gap: 14px; }
+  .music h2 { margin: 12px 0 0; color: var(--title); font-size: 32px; }
+  .music-player { display: grid; gap: 12px; }
+  .music-player button { padding: 14px; cursor: pointer; border: 2px solid var(--title);
+    border-radius: 14px; color: var(--title); background: transparent; font: inherit; text-align: left; }
+  .music-player button[aria-pressed="true"] { background: var(--card); color: var(--cardInk); border-color: var(--card); }
+  .music audio { width: 100%; }
+  .music-status { color: var(--ink); min-height: 1.2em; }
 body{padding:0;background:var(--bg)} .row,.col{display:block} .phone{width:100%;max-width:480px;height:100vh;height:100dvh;margin:0 auto;border-radius:0;box-shadow:none}
 canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 .phone{height:var(--h,100dvh)!important}
@@ -148,9 +159,21 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
         <a class="chip" href="tel:+37477881576"><b>Call us</b><span>+374 77 88 15 76 · delivery in Yerevan</span></a>
       </div>
       <button class="send"><div><b>Send a barev</b><span>a free postcard for someone dear</span></div><em>→</em></button>
-      <button class="send shop"><div><b>Shop</b><span>hoodies, tees, totes, notebooks</span></div><em>→</em></button>
+      <a class="send play" href="/game"><div><b>Shoot a barev</b><span>Score five and win a paper postcard</span></div><em>→</em></a>
+      <button class="send listen"><div><b>Listen</b><span>Two Barev songs</span></div><em aria-hidden="true">♪</em></button>
       <canvas class="balls"></canvas>
       <div class="toast"></div>
+    </div>
+
+    <div class="screen music hidden">
+      <div class="bar"><button class="back music-back">← Back</button></div>
+      <h2>Listen</h2>
+      <div class="music-player">
+        <button type="button" data-track="/music/barev-one.mp3" aria-pressed="false">Barev, Janike ONE</button>
+        <button type="button" data-track="/music/barev-two.mp3" aria-pressed="false">Barev, Janike TWO</button>
+      </div>
+      <audio controls preload="none" aria-label="Barev player"></audio>
+      <div class="music-status" role="status"></div>
     </div>
 
     <div class="screen pick hidden">
@@ -163,6 +186,7 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
         <textarea class="msg" rows="2" maxlength="140" placeholder="Add a message (optional)"></textarea>
         <button class="go">Send →</button>
         <div class="paper">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
+        <div class="toast"></div>
       </div>
     </div>
     <div class="screen pick shopscr hidden">
@@ -350,13 +374,35 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   const mark = () => imgs.forEach((im, k) => im.classList.toggle("sel", k === cur));
   imgs.forEach((im, k) => im.onclick = () => { cur = k; mark(); });
   $(".send").onclick = () => { pick.classList.remove("hidden"); strip.scrollTop = 0; mark(); };
-  $(".back").onclick = () => pick.classList.add("hidden");
+  $(".pick .back").onclick = () => pick.classList.add("hidden");
+  const music = $(".music"), audio = music.querySelector("audio");
+  const tracks = [...music.querySelectorAll("[data-track]")], status = $(".music-status");
+  $(".listen").onclick = () => {
+    music.classList.remove("hidden");
+    tracks.find(track => track.getAttribute("aria-pressed") === "true")?.focus();
+    if (!audio.getAttribute("src")) tracks[0].focus();
+  };
+  $(".music-back").onclick = () => {
+    audio.pause();
+    music.classList.add("hidden");
+    $(".listen").focus();
+  };
+  tracks.forEach(track => track.onclick = async () => {
+    if (audio.getAttribute("src") !== track.dataset.track) audio.src = track.dataset.track;
+    tracks.forEach(item => item.setAttribute("aria-pressed", String(track === item)));
+    status.textContent = "";
+    try { await audio.play(); }
+    catch (error) { if (error.name !== "AbortError") status.textContent = "Could not play the track. Tap to try again."; }
+  });
+  audio.addEventListener("error", () => { status.textContent = "Track unavailable. Try again in a moment."; });
   $(".go").onclick = async () => {
-    const im = imgs[cur], txt = $(".msg").value.trim(), blob = txt ? await withMsg(im.src, txt) : await (await fetch(im.src)).blob(), file = new File([blob], "barev-janik.jpg", { type: "image/jpeg" });
+    const im = imgs[cur];
+    if (!im) return toast(pick, "No postcards available yet");
+    const txt = $(".msg").value.trim(), blob = txt ? await withMsg(im.src, txt) : await (await fetch(im.src)).blob(), file = new File([blob], "barev-janik.jpg", { type: "image/jpeg" });
     let sent = false;
     try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); sent = true; } } catch (e) { if (e.name === "AbortError") return; }
     if (!sent) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "barev-janik.jpg"; a.click(); }
-    $(".msg").value = ""; pick.classList.add("hidden"); toast(talk, "Barev delivered."); tone(880, 0, .4, .2); tone(1175, .12, .5, .2); pit.jump();
+    $(".msg").value = ""; pick.classList.add("hidden"); toast(talk, sent ? "Barev shared." : "Postcard saved. Send it in any messenger."); tone(880, 0, .4, .2); tone(1175, .12, .5, .2); pit.jump();
   };
 
   // shop
@@ -364,7 +410,7 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   let items = [], sel = {};
   const fmt = n => n.toLocaleString("ru-RU") + " AMD";
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-  $(".shop").onclick = async () => {
+  const openShop = async () => {
     shop.classList.remove("hidden");
     try { items = await fetch("/api/products").then(r => r.json()); } catch (e) { items = []; }
     prods.innerHTML = items.length ? items.map((p, i) => `<button class="item" data-i="${i}"><img src="/products/${p.id}.jpg" alt=""><b>${esc(p.name)}</b><span>${fmt(p.price)}</span></button>`).join("")
@@ -392,7 +438,7 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
     if (!ok) return toast(prod, "Could not send. Call us: +374 77 88 15 76");
     prod.classList.add("hidden"); shop.classList.add("hidden"); toast(talk, "Order sent. We'll call you."); pit.jump();
   };
-  if (location.hash === "#shop") { $(".accept").click(); setTimeout(() => $(".shop").click(), 400); }
+  if (location.hash === "#shop") { $(".accept").click(); setTimeout(openShop, 400); }
 
 }));
 </script>
