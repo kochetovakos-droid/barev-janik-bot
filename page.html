@@ -100,6 +100,8 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 .ring .title{font-size:clamp(44px,15vw,62px);margin-top:14px}
 .talk .title{font-size:clamp(40px,12.5vw,52px);min-height:0;margin-top:10px}
 .grid{margin-top:clamp(10px,2vh,16px)}
+.msg{width:100%;border:0;border-radius:14px;padding:12px 14px;font:400 16px "Futura PT",sans-serif;color:#1433A2;background:#fff;resize:none;outline:none}
+.msg::placeholder{color:#1433A2;opacity:.5}
 </style>
 </head>
 <body>
@@ -142,6 +144,7 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 </div>
       <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="foot">
+        <textarea class="msg" rows="2" maxlength="140" placeholder="Add a message (optional)"></textarea>
         <button class="go">Send →</button>
         <div class="paper">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
       </div>
@@ -151,6 +154,20 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 
 <script>
 const setH = () => document.documentElement.style.setProperty("--h", innerHeight + "px"); setH(); addEventListener("resize", setH);
+async function withMsg(src, txt) {
+  const img = new Image(); img.src = src; await img.decode();
+  const W = img.naturalWidth, IH = Math.round(W * 894 / 720), S = img.naturalHeight - IH, pad = 32, fs = 30, lh = 40;
+  const c = document.createElement("canvas"), x = c.getContext("2d"); x.font = `500 ${fs}px "Futura PT"`;
+  const lines = []; let cur = "";
+  for (const para of txt.split("\n")) { cur = ""; for (const w of para.split(/\s+/)) { const t = cur ? cur + " " + w : w; if (x.measureText(t).width > W - pad * 2 && cur) { lines.push(cur); cur = w; } else cur = t; } lines.push(cur); }
+  const band = pad + lines.length * lh + 8;
+  c.width = W; c.height = img.naturalHeight + band;
+  x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+  x.drawImage(img, 0, 0, W, IH, 0, 0, W, IH); x.drawImage(img, 0, IH, W, S, 0, IH + band, W, S);
+  x.font = `500 ${fs}px "Futura PT"`; x.fillStyle = "#1433A2"; x.textBaseline = "top";
+  lines.forEach((l, i) => x.fillText(l, pad, IH + pad + i * lh));
+  return await new Promise(r => c.toBlob(r, "image/jpeg", .85));
+}
 const THEMES = [["t-blue","Blue + lime","plain_blue"],["t-lilac","Lilac + lime","plain_lilac"],["t-green","Green + pink","plain_green"]];
 const PHONE = "+37477881576";
 const css = (el, v) => getComputedStyle(el).getPropertyValue(v).trim();
@@ -306,11 +323,11 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   $(".send").onclick = () => { pick.classList.remove("hidden"); strip.scrollTop = 0; mark(); };
   $(".back").onclick = () => pick.classList.add("hidden");
   $(".go").onclick = async () => {
-    const im = imgs[cur], blob = await (await fetch(im.src)).blob(), file = new File([blob], "barev-janik.jpg", { type: "image/jpeg" });
+    const im = imgs[cur], txt = $(".msg").value.trim(), blob = txt ? await withMsg(im.src, txt) : await (await fetch(im.src)).blob(), file = new File([blob], "barev-janik.jpg", { type: "image/jpeg" });
     let sent = false;
     try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); sent = true; } } catch (e) { if (e.name === "AbortError") return; }
     if (!sent) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "barev-janik.jpg"; a.click(); }
-    pick.classList.add("hidden"); toast(talk, "Barev delivered."); tone(880, 0, .4, .2); tone(1175, .12, .5, .2); pit.jump();
+    $(".msg").value = ""; pick.classList.add("hidden"); toast(talk, "Barev delivered."); tone(880, 0, .4, .2); tone(1175, .12, .5, .2); pit.jump();
   };
 }));
 </script>
