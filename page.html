@@ -94,29 +94,6 @@
   .dots { display: none; }
   .pick h2 { padding-bottom: 4px; }
 body{padding:0;background:var(--bg)} .row,.col{display:block} .phone{width:100%;max-width:480px;height:100vh;height:100dvh;margin:0 auto;border-radius:0;box-shadow:none}
-canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
-.phone{height:var(--h,100dvh)!important}
-.screen{padding:max(18px,env(safe-area-inset-top)) 22px max(20px,env(safe-area-inset-bottom))}
-.ring .title{font-size:clamp(44px,15vw,62px);margin-top:14px}
-.talk .title{font-size:clamp(40px,12.5vw,52px);min-height:0;margin-top:10px}
-.grid{margin-top:clamp(10px,2vh,16px)}
-.msg{width:100%;border:0;border-radius:14px;padding:12px 14px;font:400 16px "Futura PT",sans-serif;color:#1433A2;background:#fff;resize:none;outline:none}
-.msg::placeholder{color:#1433A2;opacity:.5}
-.prods{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow-y:auto;padding:14px 24px 18px;flex:1;min-height:0;align-content:start}
-.item{background:#fff;border:0;border-radius:6px;overflow:hidden;cursor:pointer;text-align:left;padding:0;font-family:inherit;color:#1433A2}
-.item img{width:100%;aspect-ratio:4/5;object-fit:contain;background:#fff;display:block}
-.item b{display:block;font-size:15px;font-weight:700;padding:8px 10px 0}.item span{display:block;font-size:14px;padding:0 10px 10px}
-.empty{color:var(--ink);font-size:17px;padding:20px 24px}
-.pbody{overflow-y:auto;flex:1;min-height:0;padding:10px 24px 16px}
-.pbody img{width:100%;max-height:46vh;object-fit:contain;background:#fff;border-radius:6px;display:block}
-.pbody h3{font-size:26px;font-weight:800;color:var(--title);text-transform:uppercase;letter-spacing:.03em;margin-top:14px}
-.pbody .price{font-size:20px;font-weight:500;color:var(--ink)}.pbody .note{font-size:15px;color:var(--ink);margin-top:4px}
-.pbody .lbl{font-size:14px;color:var(--ink);margin:14px 0 6px}
-.opt{border:2px solid var(--card);background:transparent;color:var(--ink);border-radius:999px;padding:6px 14px;font:500 15px "Futura PT",sans-serif;margin:0 6px 6px 0;cursor:pointer}
-.opt.on{background:var(--card);color:var(--cardInk)}
-.fld{width:100%;border:0;border-radius:12px;padding:12px 14px;font:400 16px "Futura PT",sans-serif;color:#1433A2;background:#fff;margin-top:8px;outline:none}
-.fld::placeholder{color:#1433A2;opacity:.5}
-.prod .foot,.shopscr .foot{padding:0 24px}
 </style>
 </head>
 <body>
@@ -147,8 +124,8 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
         <a class="chip" target="_blank" href="https://instagram.com/barev.janik"><b>Instagram</b><span>@barev.janik</span></a>
         <a class="chip" href="tel:+37477881576"><b>Call us</b><span>+374 77 88 15 76 · delivery in Yerevan</span></a>
       </div>
+      <a class="chip" href="/game"><b>Shoot a barev</b><span>Play the game</span></a>
       <button class="send"><div><b>Send a barev</b><span>a free postcard for someone dear</span></div><em>→</em></button>
-      <button class="send shop"><div><b>Shop</b><span>hoodies, tees, totes, notebooks</span></div><em>→</em></button>
       <canvas class="balls"></canvas>
       <div class="toast"></div>
     </div>
@@ -160,43 +137,14 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 </div>
       <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="foot">
-        <textarea class="msg" rows="2" maxlength="140" placeholder="Add a message (optional)"></textarea>
         <button class="go">Send →</button>
         <div class="paper">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
       </div>
-    </div>
-    <div class="screen pick shopscr hidden">
-      <div class="bar"><button class="back sback">← Back</button></div>
-      <h2>Shop</h2>
-      <div class="prods"></div>
-      <div class="foot"><div class="paper">8 Pap Tagavor St, courtyard · 12:00-20:00 · delivery in Yerevan</div></div>
-    </div>
-
-    <div class="screen pick prod hidden">
-      <div class="bar"><button class="back pback">← Back</button></div>
-      <div class="pbody"></div>
-      <div class="foot"><button class="go order">Order →</button><div class="paper">We'll call you to confirm the order.</div></div>
-      <div class="toast"></div>
     </div>
   </div>
 </template>
 
 <script>
-const setH = () => document.documentElement.style.setProperty("--h", innerHeight + "px"); setH(); addEventListener("resize", setH);
-async function withMsg(src, txt) {
-  const img = new Image(); img.src = src; await img.decode();
-  const W = img.naturalWidth, IH = Math.round(W * 894 / 720), S = img.naturalHeight - IH, pad = 40, fs = 46, lh = 58;
-  const c = document.createElement("canvas"), x = c.getContext("2d"); x.font = `500 ${fs}px "Futura PT"`;
-  const lines = []; let cur = "";
-  for (const para of txt.split("\n")) { cur = ""; for (const w of para.split(/\s+/)) { const t = cur ? cur + " " + w : w; if (x.measureText(t).width > W - pad * 2 && cur) { lines.push(cur); cur = w; } else cur = t; } lines.push(cur); }
-  const band = pad * 2 + lines.length * lh - 12;
-  c.width = W; c.height = img.naturalHeight + band;
-  x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
-  x.drawImage(img, 0, 0, W, IH, 0, 0, W, IH); x.drawImage(img, 0, IH, W, S, 0, IH + band, W, S);
-  x.font = `500 ${fs}px "Futura PT"`; x.fillStyle = "#1433A2"; x.textBaseline = "top";
-  lines.forEach((l, i) => x.fillText(l, pad, IH + pad + i * lh));
-  return await new Promise(r => c.toBlob(r, "image/jpeg", .85));
-}
 const THEMES = [["t-blue","Blue + lime","plain_blue"],["t-lilac","Lilac + lime","plain_lilac"],["t-green","Green + pink","plain_green"]];
 const PHONE = "+37477881576";
 const css = (el, v) => getComputedStyle(el).getPropertyValue(v).trim();
@@ -224,7 +172,9 @@ function vcard() {
 let tiltX = 0;
 function askTilt() {
   const on = () => addEventListener("deviceorientation", e => { if (e.gamma != null) tiltX = Math.max(-1, Math.min(1, e.gamma / 40)); });
-  if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function")) on();
+  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function")
+    DeviceOrientationEvent.requestPermission().then(s => s === "granted" && on()).catch(() => {});
+  else on();
 }
 
 function makeSprite(r, base, ink, label, dpr) {
@@ -253,11 +203,11 @@ class Pit {
   constructor(screen, canvas, theme) {
     this.s = screen; this.c = canvas; this.x = canvas.getContext("2d"); this.balls = []; this.run = false; this.grab = null;
     this.base = css(theme, "--card"); this.ink = css(theme, "--cardInk");
-    screen.addEventListener("pointerdown", e => this.down(e)); addEventListener("resize", () => { if (this.run) this.size(); });
+    screen.addEventListener("pointerdown", e => this.down(e));
     screen.addEventListener("pointermove", e => this.move(e));
     screen.addEventListener("pointerup", e => this.up(e)); screen.addEventListener("pointercancel", e => this.up(e));
   }
-  size() { const r = this.c.getBoundingClientRect(), d = devicePixelRatio || 1; this.W = r.width; this.H = r.height; this.dpr = d;
+  size() { const r = this.s.getBoundingClientRect(), d = devicePixelRatio || 1; this.W = r.width; this.H = r.height; this.dpr = d;
     this.c.width = r.width * d; this.c.height = r.height * d; this.x.setTransform(d, 0, 0, d, 0, 0); }
   drop(n) {
     this.size();
@@ -298,7 +248,7 @@ class Pit {
       if (rv < 0) { const j2 = -(1 + e) * rv / 2; p.vx -= j2 * nx; p.vy -= j2 * ny; q.vx += j2 * nx; q.vy += j2 * ny; }
     }
   }
-  pt(e) { const r = this.c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  pt(e) { const r = this.s.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
   down(e) {
     if (!this.run) return; const [px, py] = this.pt(e);
     const b = this.balls.find(b => Math.hypot(b.x - px, b.y - py) < b.r + 6);
@@ -352,48 +302,12 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   $(".send").onclick = () => { pick.classList.remove("hidden"); strip.scrollTop = 0; mark(); };
   $(".back").onclick = () => pick.classList.add("hidden");
   $(".go").onclick = async () => {
-    const im = imgs[cur], txt = $(".msg").value.trim(), blob = txt ? await withMsg(im.src, txt) : await (await fetch(im.src)).blob(), file = new File([blob], "barev-janik.jpg", { type: "image/jpeg" });
+    const im = imgs[cur], blob = await (await fetch(im.src)).blob(), file = new File([blob], "barev-janik.jpg", { type: "image/jpeg" });
     let sent = false;
     try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); sent = true; } } catch (e) { if (e.name === "AbortError") return; }
     if (!sent) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "barev-janik.jpg"; a.click(); }
-    $(".msg").value = ""; pick.classList.add("hidden"); toast(talk, "Barev delivered."); tone(880, 0, .4, .2); tone(1175, .12, .5, .2); pit.jump();
+    pick.classList.add("hidden"); toast(talk, "Barev delivered."); tone(880, 0, .4, .2); tone(1175, .12, .5, .2); pit.jump();
   };
-
-  // shop
-  const shop = $(".shopscr"), prod = $(".prod"), prods = $(".prods"), pbody = $(".pbody");
-  let items = [], sel = {};
-  const fmt = n => n.toLocaleString("ru-RU") + " AMD";
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-  $(".shop").onclick = async () => {
-    shop.classList.remove("hidden");
-    try { items = await fetch("/api/products").then(r => r.json()); } catch (e) { items = []; }
-    prods.innerHTML = items.length ? items.map((p, i) => `<button class="item" data-i="${i}"><img src="/products/${p.id}.jpg" alt=""><b>${esc(p.name)}</b><span>${fmt(p.price)}</span></button>`).join("")
-                                   : '<div class="empty">The collection is coming here soon.</div>';
-    prods.querySelectorAll(".item").forEach(b => b.onclick = () => openP(items[+b.dataset.i]));
-  };
-  const opts = (k, arr) => arr.length ? `<div class="lbl">${k === "size" ? "Size" : "Color"}</div>` + arr.map(v => `<button class="opt" data-k="${k}" data-v="${esc(v)}">${esc(v)}</button>`).join("") : "";
-  function openP(p) {
-    sel = { id: p.id, size: "", color: "" };
-    pbody.innerHTML = `<img src="/products/${p.id}.jpg" alt=""><h3>${esc(p.name)}</h3><div class="price">${fmt(p.price)}</div>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}`
-      + opts("color", p.colors) + opts("size", p.sizes)
-      + `<div class="lbl">Your contact</div><input class="fld oname" placeholder="Name" maxlength="60"><input class="fld ophone" type="tel" placeholder="Phone or WhatsApp" maxlength="30"><input class="fld onote" placeholder="Comment (optional)" maxlength="300">`;
-    pbody.querySelectorAll(".opt").forEach(b => b.onclick = () => { pbody.querySelectorAll(`.opt[data-k="${b.dataset.k}"]`).forEach(x => x.classList.remove("on")); b.classList.add("on"); sel[b.dataset.k] = b.dataset.v; });
-    pbody.scrollTop = 0; prod.classList.remove("hidden"); prod.dataset.need = (p.sizes.length ? "s" : "") + (p.colors.length ? "c" : "");
-  }
-  $(".sback").onclick = () => shop.classList.add("hidden");
-  $(".pback").onclick = () => prod.classList.add("hidden");
-  $(".order").onclick = async () => {
-    const need = prod.dataset.need, name = $(".oname").value.trim(), phone = $(".ophone").value.trim();
-    if (need.includes("c") && !sel.color) return toast(prod, "Pick a color");
-    if (need.includes("s") && !sel.size) return toast(prod, "Pick a size");
-    if (!name || phone.replace(/\D/g, "").length < 6) return toast(prod, "Add your name and phone");
-    let ok = false;
-    try { ok = (await fetch("/api/order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...sel, name, phone, note: $(".onote").value.trim() }) }).then(r => r.json())).ok; } catch (e) {}
-    if (!ok) return toast(prod, "Could not send. Call us: +374 77 88 15 76");
-    prod.classList.add("hidden"); shop.classList.add("hidden"); toast(talk, "Order sent. We'll call you."); pit.jump();
-  };
-  if (location.hash === "#shop") { $(".accept").click(); setTimeout(() => $(".shop").click(), 400); }
-
 }));
 </script>
 </body>
