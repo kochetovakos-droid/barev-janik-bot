@@ -41,10 +41,8 @@ document.fonts.ready.then(()=>{
  labeledSprite=sprite(23,true);
  plainSprite=sprite(23,false);
 });
-const dog=new Image();
-dog.src="/game/dalmatian.png";
-let fetchRun=null,flight=null,grab=null,state=null,net=0;
-const hoop={y:210,half:36,x:170};
+let flight=null,grab=null,state=null,net=0;
+const hoop={y:245,half:36,x:170,phase:0};
 const meter=[...document.querySelectorAll("#m i")];
 const sub=document.getElementById("sub"), hint=document.getElementById("hint");
 const win=document.getElementById("win"), claim=document.getElementById("claim");
@@ -62,7 +60,7 @@ function applyState(result){
  if(!balls.length)result.balls.forEach(([x,y],id)=>{
   balls.push({x,y,homeX:x,homeY:y,r:23,a:(id-3)*.5,id});
  });
- hoop.x=result.hoop;
+ if(result.hoop&&hoop.phase===0)hoop.x=result.hoop;
  meter.forEach((item,i)=>item.classList.toggle("on",i<result.score));
  sub.textContent=result.score+" of 5 · Win a paper postcard";
  if(result.claim){
@@ -71,7 +69,7 @@ function applyState(result){
  }
 }
 async function start(){
- try{applyState(await api("session",{}));hint.textContent="Swipe any ball up into the hoop";}
+ try{applyState(await api("session",{}));hint.textContent="Grab a ball and flick it into the hoop";}
  catch{hint.textContent="Could not connect. Tap here to retry.";hint.classList.add("retry")}
 }
 hint.onclick=()=>{if(!state){hint.classList.remove("retry");start()}};
@@ -81,37 +79,46 @@ const point=e=>{
  return [(e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height];
 };
 c.addEventListener("pointerdown",e=>{
- if(!state||state.claim||flight||fetchRun||grab)return;
+ if(!state||state.claim||flight||grab)return;
  const [px,py]=point(e);
- let closest=null, distance=34;
+ let closest=null, distance=35;
  for(const ball of balls){
   const d=Math.hypot(ball.x-px,ball.y-py);
   if(d<distance){closest=ball;distance=d}
  }
  if(!closest)return;
- grab={id:e.pointerId,x:px,y:py,ball:closest};
+ grab={id:e.pointerId,ball:closest,x:px,y:py,t:performance.now(),vx:0,vy:0};
  c.setPointerCapture(e.pointerId);
 });
-c.addEventListener("pointercancel",()=>{grab=null});
+c.addEventListener("pointermove",e=>{
+ if(!grab||grab.id!==e.pointerId)return;
+ const [px,py]=point(e), now=performance.now(), dt=Math.max(8,now-grab.t)/1000;
+ grab.vx=(px-grab.x)/dt;grab.vy=(py-grab.y)/dt;
+ Object.assign(grab,{x:px,y:py,t:now});
+ grab.ball.x=clamp(px,23,317);
+ grab.ball.y=clamp(py,23,655);
+});
+c.addEventListener("pointercancel",()=>{
+ if(grab)resetBall(grab.ball);
+ grab=null;
+});
 c.addEventListener("pointerup",e=>{
  if(!grab||grab.id!==e.pointerId)return;
- const [px,py]=point(e), dx=px-grab.x, dy=grab.y-py, ball=grab.ball;
+ const {ball,vx,vy,t}=grab;
  grab=null;
- if(dy<15)return;
- shoot(ball,clamp(dx*3,-240,240),-clamp(740+dy*6,850,1550));
+ const fresh=performance.now()-t<100;
+ shoot(ball,fresh?clamp(vx,-1800,1800):0,fresh?clamp(vy,-2300,2300):0);
 });
 async function shoot(ball,vx,vy){
- if(!state||state.claim||flight||fetchRun)return;
- const turn=state.turn;
- const floor=655;
- const end=(-vy+Math.sqrt(vy*vy+3800*(floor-ball.homeY)))/1900;
- const current={ball,vx,vy,t:0,result:null,end};
+ if(!state||state.claim||flight)return;
+ const turn=state.turn, phase=hoop.phase;
+ const current={ball,vx,t:0,phase,result:null,lastFrame:-1};
  flight=current;
  hint.textContent="";
  try{
-  const result=await api("shot",{turn,ball:ball.id,vx,vy});
-  if(result.turn!==turn+1){
-   flight=null;resetBall(ball);applyState(result);hint.textContent="Swipe again";return;
+  const result=await api("shot",{turn,x:ball.x,y:ball.y,vx,vy,phase});
+  if(result.turn!==turn+1||!result.frames?.length){
+   flight=null;resetBall(ball);applyState(result);hint.textContent="Flick again";return;
   }
   current.result=result;
  }catch{
@@ -121,35 +128,24 @@ async function shoot(ball,vx,vy){
 }
 function resetBall(ball){ball.x=ball.homeX;ball.y=ball.homeY;ball.a=(ball.id-3)*.5}
 function step(dt){
- if(flight){
-  const f=flight,ball=f.ball,t=Math.min(f.end,f.t+=dt);
-  ball.x=clamp(ball.homeX+f.vx*t,ball.r,340-ball.r);
-  ball.y=ball.homeY+f.vy*t+950*t*t;
-  ball.a=f.vx*t/ball.r;
-  if(f.result?.hit&&!f.rang&&f.vy+1900*t>0&&ball.y>=210){
-   f.rang=true;net=1;tone(660,0,.25,.2);tone(990,.1,.35,.2);
+ if(!flight){
+  hoop.phase=(hoop.phase+.7*dt)%(2*Math.PI);
+  hoop.x=170+90*Math.sin(hoop.phase);
+ }
+ if(flight?.result){
+  const f=flight,ball=f.ball,frames=f.result.frames;
+  const index=Math.min(frames.length-1,Math.floor((f.t+=dt)*120));
+  const [px,py,hx]=frames[index];
+  ball.x=px;ball.y=py;ball.a+=f.vx*dt/ball.r;
+  hoop.x=hx;hoop.phase=(f.phase+.7*(index+1)/120)%(2*Math.PI);
+  for(let i=f.lastFrame+1;i<=index;i++){
+   if(frames[i][3]){net=1;tone(660,0,.25,.2);tone(990,.1,.35,.2)}
   }
-  if(t>=f.end&&f.result){
+  f.lastFrame=index;
+  if(index===frames.length-1){
    flight=null;
    applyState(f.result);
-   if(f.result.hit)resetBall(ball);
-   else fetchRun={ball,t:0,start:W+72,target:ball.x,x:W+72};
-  }
- }
- if(fetchRun){
-  const run=fetchRun,ball=run.ball;
-  run.t+=dt;
-  if(run.t<.58){
-   run.x=run.start+(run.target-run.start)*run.t/.58;
-  }else if(run.t<1.40){
-   const travel=(run.t-.58)/.82;
-   run.x=run.target+(ball.homeX-run.target)*travel;
-   ball.x=run.x;
-   ball.y=655+(ball.homeY-655)*travel-10*Math.sin(Math.PI*travel);
-  }else{
    resetBall(ball);
-   run.x=ball.homeX+(W+95-ball.homeX)*Math.min(1,(run.t-1.40)/.56);
-   if(run.t>=1.96)fetchRun=null;
   }
  }
  net=Math.max(0,net-dt*2);
@@ -157,22 +153,9 @@ function step(dt){
 function drawBack(){const hx=hoop.x,hy=hoop.y;x.fillStyle="rgba(255,255,255,.92)";x.beginPath();x.roundRect(hx-58,hy-78,116,74,6);x.fill();x.strokeStyle=PINK;x.lineWidth=4;x.strokeRect(hx-24,hy-56,48,34);
 x.strokeStyle="rgba(255,255,255,.85)";x.lineWidth=2;const w=Math.sin(performance.now()/40)*6*net;for(let i=0;i<=6;i++){const t=i/6,x0=hx-hoop.half+t*hoop.half*2,x1=hx-hoop.half*.7+t*hoop.half*1.4+w;x.beginPath();x.moveTo(x0,hy+2);x.lineTo(x1,hy+46+net*10);x.stroke()}
 x.beginPath();x.moveTo(hx-hoop.half*.85+w*.5,hy+24);x.lineTo(hx+hoop.half*.85+w*.5,hy+24);x.stroke();x.strokeStyle=PINK;x.lineWidth=6;x.beginPath();x.ellipse(hx,hy,hoop.half,8,0,Math.PI,2*Math.PI);x.stroke()}
-function drawDog(){
- if(!fetchRun||!dog.complete||!dog.naturalWidth)return;
- const run=fetchRun, ball=run.ball;
- const face=run.t<.58?-1:run.t>=1.40||ball.homeX>=run.target?1:-1;
- const mouthY=run.t>=.58&&run.t<1.40?ball.y:655;
- const stride=Math.sin(run.t*31), width=146, height=width*dog.naturalHeight/dog.naturalWidth;
- x.save();
- x.translate(run.x-face*(ball.r+width*.40),mouthY+height*.18+stride*3);
- x.scale(face,1+stride*.035);
- x.rotate(stride*.026);
- x.drawImage(dog,-width/2,-height/2,width,height);
- x.restore();
-}
 function drawFront(){x.strokeStyle=PINK;x.lineWidth=6;x.beginPath();x.ellipse(hoop.x,hoop.y,hoop.half,8,0,0,Math.PI);x.stroke()}
 let t0=performance.now();function loop(t){const dt=Math.min(1/30,(t-t0)/1000);t0=t;step(dt/2);step(dt/2);x.clearRect(0,0,W,H);drawBack();
-const moving=flight?.ball||fetchRun?.ball;
+const moving=flight?.ball;
 function drawBall(b){
  const art=b.id%2?plainSprite:labeledSprite;
  if(!art)return;
@@ -180,7 +163,7 @@ function drawBall(b){
 }
 for(const b of balls)if(b!==moving)drawBall(b);
 if(moving)drawBall(moving);
-drawDog();drawFront();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+drawFront();requestAnimationFrame(loop)}requestAnimationFrame(loop);
 addEventListener("resize",size);
 }
 </script></body></html>
