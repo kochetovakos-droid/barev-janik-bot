@@ -94,6 +94,12 @@
   .dots { display: none; }
   .pick h2 { padding-bottom: 4px; }
 body{padding:0;background:var(--bg)} .row,.col{display:block} .phone{width:100%;max-width:480px;height:100vh;height:100dvh;margin:0 auto;border-radius:0;box-shadow:none}
+canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
+.phone{height:var(--h,100dvh)!important}
+.screen{padding:max(18px,env(safe-area-inset-top)) 22px max(20px,env(safe-area-inset-bottom))}
+.ring .title{font-size:clamp(44px,15vw,62px);margin-top:14px}
+.talk .title{font-size:clamp(40px,12.5vw,52px);min-height:0;margin-top:10px}
+.grid{margin-top:clamp(10px,2vh,16px)}
 </style>
 </head>
 <body>
@@ -144,6 +150,7 @@ body{padding:0;background:var(--bg)} .row,.col{display:block} .phone{width:100%;
 </template>
 
 <script>
+const setH = () => document.documentElement.style.setProperty("--h", innerHeight + "px"); setH(); addEventListener("resize", setH);
 const THEMES = [["t-blue","Blue + lime","plain_blue"],["t-lilac","Lilac + lime","plain_lilac"],["t-green","Green + pink","plain_green"]];
 const PHONE = "+37477881576";
 const css = (el, v) => getComputedStyle(el).getPropertyValue(v).trim();
@@ -171,9 +178,7 @@ function vcard() {
 let tiltX = 0;
 function askTilt() {
   const on = () => addEventListener("deviceorientation", e => { if (e.gamma != null) tiltX = Math.max(-1, Math.min(1, e.gamma / 40)); });
-  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function")
-    DeviceOrientationEvent.requestPermission().then(s => s === "granted" && on()).catch(() => {});
-  else on();
+  if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function")) on();
 }
 
 function makeSprite(r, base, ink, label, dpr) {
@@ -202,11 +207,11 @@ class Pit {
   constructor(screen, canvas, theme) {
     this.s = screen; this.c = canvas; this.x = canvas.getContext("2d"); this.balls = []; this.run = false; this.grab = null;
     this.base = css(theme, "--card"); this.ink = css(theme, "--cardInk");
-    screen.addEventListener("pointerdown", e => this.down(e));
+    screen.addEventListener("pointerdown", e => this.down(e)); addEventListener("resize", () => { if (this.run) this.size(); });
     screen.addEventListener("pointermove", e => this.move(e));
     screen.addEventListener("pointerup", e => this.up(e)); screen.addEventListener("pointercancel", e => this.up(e));
   }
-  size() { const r = this.s.getBoundingClientRect(), d = devicePixelRatio || 1; this.W = r.width; this.H = r.height; this.dpr = d;
+  size() { const r = this.c.getBoundingClientRect(), d = devicePixelRatio || 1; this.W = r.width; this.H = r.height; this.dpr = d;
     this.c.width = r.width * d; this.c.height = r.height * d; this.x.setTransform(d, 0, 0, d, 0, 0); }
   drop(n) {
     this.size();
@@ -247,7 +252,7 @@ class Pit {
       if (rv < 0) { const j2 = -(1 + e) * rv / 2; p.vx -= j2 * nx; p.vy -= j2 * ny; q.vx += j2 * nx; q.vy += j2 * ny; }
     }
   }
-  pt(e) { const r = this.s.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  pt(e) { const r = this.c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
   down(e) {
     if (!this.run) return; const [px, py] = this.pt(e);
     const b = this.balls.find(b => Math.hypot(b.x - px, b.y - py) < b.r + 6);
