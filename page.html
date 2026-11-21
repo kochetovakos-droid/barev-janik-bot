@@ -185,11 +185,11 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 const setH = () => document.documentElement.style.setProperty("--h", innerHeight + "px"); setH(); addEventListener("resize", setH);
 async function withMsg(src, txt) {
   const img = new Image(); img.src = src; await img.decode();
-  const W = img.naturalWidth, IH = Math.round(W * 894 / 720), S = img.naturalHeight - IH, pad = 32, fs = 30, lh = 40;
+  const W = img.naturalWidth, IH = Math.round(W * 894 / 720), S = img.naturalHeight - IH, pad = 40, fs = 46, lh = 58;
   const c = document.createElement("canvas"), x = c.getContext("2d"); x.font = `500 ${fs}px "Futura PT"`;
   const lines = []; let cur = "";
   for (const para of txt.split("\n")) { cur = ""; for (const w of para.split(/\s+/)) { const t = cur ? cur + " " + w : w; if (x.measureText(t).width > W - pad * 2 && cur) { lines.push(cur); cur = w; } else cur = t; } lines.push(cur); }
-  const band = pad + lines.length * lh + 8;
+  const band = pad * 2 + lines.length * lh - 12;
   c.width = W; c.height = img.naturalHeight + band;
   x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
   x.drawImage(img, 0, 0, W, IH, 0, 0, W, IH); x.drawImage(img, 0, IH, W, S, 0, IH + band, W, S);
