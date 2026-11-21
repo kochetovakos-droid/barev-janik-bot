@@ -102,6 +102,21 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 .grid{margin-top:clamp(10px,2vh,16px)}
 .msg{width:100%;border:0;border-radius:14px;padding:12px 14px;font:400 16px "Futura PT",sans-serif;color:#1433A2;background:#fff;resize:none;outline:none}
 .msg::placeholder{color:#1433A2;opacity:.5}
+.prods{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow-y:auto;padding:14px 24px 18px;flex:1;min-height:0;align-content:start}
+.item{background:#fff;border:0;border-radius:6px;overflow:hidden;cursor:pointer;text-align:left;padding:0;font-family:inherit;color:#1433A2}
+.item img{width:100%;aspect-ratio:4/5;object-fit:contain;background:#fff;display:block}
+.item b{display:block;font-size:15px;font-weight:700;padding:8px 10px 0}.item span{display:block;font-size:14px;padding:0 10px 10px}
+.empty{color:var(--ink);font-size:17px;padding:20px 24px}
+.pbody{overflow-y:auto;flex:1;min-height:0;padding:10px 24px 16px}
+.pbody img{width:100%;max-height:46vh;object-fit:contain;background:#fff;border-radius:6px;display:block}
+.pbody h3{font-size:26px;font-weight:800;color:var(--title);text-transform:uppercase;letter-spacing:.03em;margin-top:14px}
+.pbody .price{font-size:20px;font-weight:500;color:var(--ink)}.pbody .note{font-size:15px;color:var(--ink);margin-top:4px}
+.pbody .lbl{font-size:14px;color:var(--ink);margin:14px 0 6px}
+.opt{border:2px solid var(--card);background:transparent;color:var(--ink);border-radius:999px;padding:6px 14px;font:500 15px "Futura PT",sans-serif;margin:0 6px 6px 0;cursor:pointer}
+.opt.on{background:var(--card);color:var(--cardInk)}
+.fld{width:100%;border:0;border-radius:12px;padding:12px 14px;font:400 16px "Futura PT",sans-serif;color:#1433A2;background:#fff;margin-top:8px;outline:none}
+.fld::placeholder{color:#1433A2;opacity:.5}
+.prod .foot,.shopscr .foot{padding:0 24px}
 </style>
 </head>
 <body>
@@ -133,6 +148,7 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
         <a class="chip" href="tel:+37477881576"><b>Call us</b><span>+374 77 88 15 76 · delivery in Yerevan</span></a>
       </div>
       <button class="send"><div><b>Send a barev</b><span>a free postcard for someone dear</span></div><em>→</em></button>
+      <button class="send shop"><div><b>Shop</b><span>hoodies, tees, totes, notebooks</span></div><em>→</em></button>
       <canvas class="balls"></canvas>
       <div class="toast"></div>
     </div>
@@ -148,6 +164,19 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
         <button class="go">Send →</button>
         <div class="paper">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
       </div>
+    </div>
+    <div class="screen pick shopscr hidden">
+      <div class="bar"><button class="back sback">← Back</button></div>
+      <h2>Shop</h2>
+      <div class="prods"></div>
+      <div class="foot"><div class="paper">8 Pap Tagavor St, courtyard · 12:00-20:00 · delivery in Yerevan</div></div>
+    </div>
+
+    <div class="screen pick prod hidden">
+      <div class="bar"><button class="back pback">← Back</button></div>
+      <div class="pbody"></div>
+      <div class="foot"><button class="go order">Order →</button><div class="paper">We'll call you to confirm the order.</div></div>
+      <div class="toast"></div>
     </div>
   </div>
 </template>
@@ -329,6 +358,42 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
     if (!sent) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "barev-janik.jpg"; a.click(); }
     $(".msg").value = ""; pick.classList.add("hidden"); toast(talk, "Barev delivered."); tone(880, 0, .4, .2); tone(1175, .12, .5, .2); pit.jump();
   };
+
+  // shop
+  const shop = $(".shopscr"), prod = $(".prod"), prods = $(".prods"), pbody = $(".pbody");
+  let items = [], sel = {};
+  const fmt = n => n.toLocaleString("ru-RU") + " AMD";
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  $(".shop").onclick = async () => {
+    shop.classList.remove("hidden");
+    try { items = await fetch("/api/products").then(r => r.json()); } catch (e) { items = []; }
+    prods.innerHTML = items.length ? items.map((p, i) => `<button class="item" data-i="${i}"><img src="/products/${p.id}.jpg" alt=""><b>${esc(p.name)}</b><span>${fmt(p.price)}</span></button>`).join("")
+                                   : '<div class="empty">The collection is coming here soon.</div>';
+    prods.querySelectorAll(".item").forEach(b => b.onclick = () => openP(items[+b.dataset.i]));
+  };
+  const opts = (k, arr) => arr.length ? `<div class="lbl">${k === "size" ? "Size" : "Color"}</div>` + arr.map(v => `<button class="opt" data-k="${k}" data-v="${esc(v)}">${esc(v)}</button>`).join("") : "";
+  function openP(p) {
+    sel = { id: p.id, size: "", color: "" };
+    pbody.innerHTML = `<img src="/products/${p.id}.jpg" alt=""><h3>${esc(p.name)}</h3><div class="price">${fmt(p.price)}</div>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}`
+      + opts("color", p.colors) + opts("size", p.sizes)
+      + `<div class="lbl">Your contact</div><input class="fld oname" placeholder="Name" maxlength="60"><input class="fld ophone" type="tel" placeholder="Phone or WhatsApp" maxlength="30"><input class="fld onote" placeholder="Comment (optional)" maxlength="300">`;
+    pbody.querySelectorAll(".opt").forEach(b => b.onclick = () => { pbody.querySelectorAll(`.opt[data-k="${b.dataset.k}"]`).forEach(x => x.classList.remove("on")); b.classList.add("on"); sel[b.dataset.k] = b.dataset.v; });
+    pbody.scrollTop = 0; prod.classList.remove("hidden"); prod.dataset.need = (p.sizes.length ? "s" : "") + (p.colors.length ? "c" : "");
+  }
+  $(".sback").onclick = () => shop.classList.add("hidden");
+  $(".pback").onclick = () => prod.classList.add("hidden");
+  $(".order").onclick = async () => {
+    const need = prod.dataset.need, name = $(".oname").value.trim(), phone = $(".ophone").value.trim();
+    if (need.includes("c") && !sel.color) return toast(prod, "Pick a color");
+    if (need.includes("s") && !sel.size) return toast(prod, "Pick a size");
+    if (!name || phone.replace(/\D/g, "").length < 6) return toast(prod, "Add your name and phone");
+    let ok = false;
+    try { ok = (await fetch("/api/order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...sel, name, phone, note: $(".onote").value.trim() }) }).then(r => r.json())).ok; } catch (e) {}
+    if (!ok) return toast(prod, "Could not send. Call us: +374 77 88 15 76");
+    prod.classList.add("hidden"); shop.classList.add("hidden"); toast(talk, "Order sent. We'll call you."); pit.jump();
+  };
+  if (location.hash === "#shop") { $(".accept").click(); setTimeout(() => $(".shop").click(), 400); }
+
 }));
 </script>
 </body>
