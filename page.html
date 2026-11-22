@@ -306,7 +306,7 @@ class Pit {
     for (let i = 0; i < n; i++) setTimeout(() => {
       const big = i % 3 === 0, r = big ? 34 : 24;
       this.balls.push({ x: 40 + Math.random() * (this.W - 80), y: -r - 10, vx: (Math.random() - .5) * 400, vy: Math.random() * 200, a: Math.random() * 6, r,
-                        sp: makeSprite(r, this.base, this.ink, big, this.dpr) });
+                        sp: makeSprite(r, this.base, this.ink, true, this.dpr) });
     }, i * 140);
     if (!this.run) { this.run = true; this.t = performance.now(); requestAnimationFrame(t => this.loop(t)); }
   }

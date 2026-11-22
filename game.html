@@ -36,7 +36,7 @@ const sx=label?-r*.42:0;g.strokeStyle=BLUE;g.lineWidth=r*.1;g.lineCap="round";g.
 if(label){g.fillStyle=BLUE;g.font=`800 ${r*.25}px "Futura PT"`;g.fillText("BAREV,",-r*.08,-r*.03);g.fillText("JANIK",-r*.08,r*.26)}
 const gr=g.createRadialGradient(-r*.35,-r*.4,r*.1,0,0,r*1.05);gr.addColorStop(0,"rgba(255,255,255,.35)");gr.addColorStop(.55,"rgba(255,255,255,0)");gr.addColorStop(1,"rgba(0,0,0,.3)");g.fillStyle=gr;g.fillRect(-r,-r,2*r,2*r);g.restore();return cv}
 const balls=[];
-document.fonts.ready.then(()=>{for(let i=0;i<7;i++){const gold=i===3,r=gold?30:26;balls.push({x:40+i*40,y:-60-i*50,vx:(Math.random()-.5)*200,vy:0,a:0,r,gold,sp:sprite(r,gold),armed:false})}});
+document.fonts.ready.then(()=>{for(let i=0;i<7;i++){const gold=i===3,r=gold?30:26;balls.push({x:40+i*40,y:-60-i*50,vx:(Math.random()-.5)*200,vy:0,a:0,r,gold,sp:sprite(r,true),armed:false})}});
 const hoop={y:245,half:36,x:170,t:0},rimR=5;let net=0,score=0,won=false;const pops=[];
 const meter=[...document.querySelectorAll("#m i")],sub=document.getElementById("sub");
 let rewardState, sending=false;
