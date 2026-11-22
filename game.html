@@ -27,8 +27,13 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
     .ph .languages button { min-height: 25px; }
     .ph .hud { top: 43px; }
     html[data-embedded] .ph .languages { display: none; }
-    html[data-embedded] body { padding: 9px 10px; }
-    html[data-embedded] .ph { height: clamp(520px, calc(100dvh - 18px), 700px); }
+    html[data-embedded], html[data-embedded] body { height: 100%; background: #1433A2; }
+    html[data-embedded] body { padding: 0; }
+    html[data-embedded] .ph { width: min(100%, 340px); height: 100%; min-height: 420px;
+      border-radius: 0; box-shadow: none; }
+    @media (max-height: 560px) {
+      html[data-embedded] .hint { bottom: 124px; padding-inline: 16px; }
+    }
 </style></head><body><div class="ph" id="ph">
 <div class="languages" role="group" aria-label="Language" data-copy-label="Language">
   <button type="button" data-lang="ru" lang="ru" aria-label="Русский" aria-pressed="false">RU</button>
