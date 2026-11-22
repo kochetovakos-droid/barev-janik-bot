@@ -22,13 +22,13 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
 
     async def request_contact(message, ticket, telegram_id):
         if not rewards.begin_claim(ticket, telegram_id):
-            return await message.answer("Эта победа недоступна.")
+            return await message.answer("This prize claim is unavailable.")
         await message.answer(
-            "Чтобы получить открытку, поделись своим номером телефона. "
-            "Нажимая кнопку ниже и подтверждая отправку контакта в Telegram, ты соглашаешься "
-            "на сохранение номера, Telegram ID и ника (если он указан) для учёта и выдачи приза.",
+            "To claim your postcard, share your phone number. By confirming in Telegram, "
+            "you agree that we may store your phone number, Telegram ID and username "
+            "(if you have one) to manage and fulfil your prize claim.",
             reply_markup=ReplyKeyboardMarkup(
-                keyboard=[[KeyboardButton(text="Поделиться контактом и получить QR", request_contact=True)]],
+                keyboard=[[KeyboardButton(text="Share contact and get QR code", request_contact=True)]],
                 resize_keyboard=True,
                 one_time_keyboard=True,
             ),
@@ -54,15 +54,15 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
         user = message.from_user
         contact = message.contact
         if contact.user_id != user.id:
-            return await message.answer("Поделись своим контактом с помощью кнопки ниже.")
+            return await message.answer("Use the button below to share your own contact.")
         reward, created = rewards.claim_after_consent(user.id, user.username, contact.phone_number)
         if reward is None:
             return await message.answer(
-                "Открой ссылку на получение приза из игры ещё раз.",
+                "Open the prize claim link from the game again.",
                 reply_markup=ReplyKeyboardRemove(),
             )
         if reward["redeemed_at"]:
-            return await message.answer("Открытка уже выдана.", reply_markup=ReplyKeyboardRemove())
+            return await message.answer("Your postcard has already been collected.", reply_markup=ReplyKeyboardRemove())
         code = reward["code"]
         if created:
             for chat_id in admin_chats():
@@ -76,8 +76,8 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
         await message.answer_photo(
             BufferedInputFile(image.getvalue(), filename="postcard-prize.png"),
             caption=(
-                "Покажи этот QR, чтобы получить бумажную открытку в подарок. "
-                "BAREV JANIK, Ереван, ул. Пап Тагабор, 8, во дворе, с 12:00 до 20:00."
+                "Show this QR code to pick up your free postcard. "
+                "BAREV JANIK, 8 Pap Tagavor St., Yerevan, in the courtyard, from 12:00 to 20:00."
             ),
             reply_markup=ReplyKeyboardRemove(),
         )
@@ -85,7 +85,7 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
     @router.message(CommandStart(deep_link=True), F.text.regexp(r"^/start(?:@\w+)? gift_[A-F0-9]{24}$"))
     async def inspect(message):
         if message.chat.type != "private" or not is_admin(message):
-            return await message.answer("Покажи QR сотруднику магазина.")
+            return await message.answer("Show this QR code to a member of staff at the shop.")
         code = message.text.split()[1][5:]
         with closing(rewards.connect()) as db:
             row = db.execute(
