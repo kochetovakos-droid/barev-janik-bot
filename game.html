@@ -19,13 +19,34 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 .win .t{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#fff;font-weight:500}
 .win h1{font-size:48px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;line-height:1;margin-top:12px}
 .win p{color:#fff;font-size:16px;margin-top:12px;line-height:1.35}
-.win .claim{display:block;padding:16px;margin-top:20px;border-radius:16px;background:#F4729E;color:#0A3D1E;font-size:19px;font-weight:800;text-decoration:none}
-.win button{margin-top:auto;border:0;border-radius:16px;padding:16px;font:800 19px "Futura PT";background:#F4729E;color:#0A3D1E;text-align:left;cursor:pointer}
+.win .claim,.win #more{display:block;border:0;border-radius:16px;padding:16px;font:800 19px "Futura PT",sans-serif;background:#F4729E;color:#0A3D1E;text-align:left;text-decoration:none;cursor:pointer}
+.win .claim{margin-top:20px}
+.win .claim[hidden],.win .reward-consent[hidden]{display:none}
+.win .claim[aria-disabled="true"]{opacity:.55;cursor:default}
+.win .reward-consent{margin-top:20px;color:#fff}
+.win .reward-consent label{display:flex;align-items:flex-start;gap:10px;font-size:16px;line-height:1.35;cursor:pointer}
+.win .reward-consent input{flex:none;width:22px;height:22px;accent-color:#D9F813}
+.win .reward-consent .claim{margin-top:12px}
+.win #more{margin-top:auto}
 </style></head><body><div class="game-viewport"><div class="game-safe-area"><div class="ph" id="ph">
 <div class="hud"><div class="top">Shoot a barev</div><div class="meter" id="m"><i></i><i></i><i></i><i></i><i></i></div><div class="sub" id="sub">0 of 5 · 5 = a paper postcard, free</div></div>
 <div class="hint" id="hint">Flick a ball up into the hoop</div>
 <canvas id="c"></canvas>
-<div class="win" id="win"><div class="t">Five baskets!</div><h1>Barev,<br>janik!</h1><p>Pick up your free postcard at 8 Pap Tagavor St., Yerevan, in the courtyard, from 12:00 to 20:00.</p><p>Confirm your consent in Telegram to get a QR code. Show it at the shop.</p><a class="claim" id="claim" target="_blank" rel="noopener">Get your QR code in Telegram →</a><button id="more">Keep playing →</button></div>
+<div class="win" id="win" inert>
+  <div class="t">Five baskets!</div>
+  <h1>Barev,<br>janik!</h1>
+  <p>Pick up your free postcard at 8 Pap Tagavor St., Yerevan, in the courtyard, from 12:00 to 20:00.</p>
+  <p>Show your QR code at the shop.</p>
+  <button class="claim" id="claim" type="button" aria-controls="reward-consent">Get your QR code in Telegram →</button>
+  <div class="reward-consent" id="reward-consent" hidden>
+    <label for="reward-agree">
+      <input id="reward-agree" type="checkbox" autocomplete="off">
+      <span>I agree that BAREV, JANIK may store my phone number, Telegram ID and username (if I have one) to issue my prize.</span>
+    </label>
+    <a class="claim" id="claim-telegram" target="_blank" rel="noopener" aria-disabled="true">Continue in Telegram →</a>
+  </div>
+  <button id="more" type="button">Keep playing →</button>
+</div>
 </div></div></div>
 <script>
 {
@@ -59,6 +80,25 @@ const hoop={y:245,half:36,x:170,t:0},rimR=5;let net=0,score=0,won=false;const po
 const meter=[...document.querySelectorAll("#m i")],sub=document.getElementById("sub");
 let rewardState, saving=false;
 const hits=[];
+const winPanel=document.getElementById("win");
+const claimButton=document.getElementById("claim");
+const consentPanel=document.getElementById("reward-consent");
+const consentCheckbox=document.getElementById("reward-agree");
+const telegramClaim=document.getElementById("claim-telegram");
+claimButton.addEventListener("click",()=>{
+  consentPanel.hidden=false;
+  claimButton.hidden=true;
+  consentCheckbox.focus();
+});
+consentCheckbox.addEventListener("change",()=>{
+  if (consentCheckbox.checked&&rewardState?.claim) {
+    telegramClaim.href=rewardState.claim;
+    telegramClaim.removeAttribute("aria-disabled");
+  } else {
+    telegramClaim.removeAttribute("href");
+    telegramClaim.setAttribute("aria-disabled","true");
+  }
+});
 async function rewardRequest(endpoint, body) {
   const response=await fetch("/game/"+endpoint, {
     method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
@@ -73,8 +113,10 @@ function showReward() {
   sub.textContent=count<5?`${count} of 5 · 5 = a paper postcard, free`:"5 of 5 · reward unlocked";
   if (rewardState.claim&&!won) {
     won=true;
-    document.getElementById("claim").href=rewardState.claim;
-    setTimeout(()=>document.getElementById("win").classList.add("show"),700);
+    setTimeout(()=>{
+      winPanel.inert=false;
+      winPanel.classList.add("show");
+    },700);
   }
 }
 async function saveHits() {
@@ -98,7 +140,10 @@ async function saveHits() {
 saveHits();
 function addScore(n,bx,by,hit){score+=n;pops.push({x:bx,y:by,t:1,s:"+"+n});net=1;tone(660,0,.25,.2);tone(990,.1,.35,.2);
 if(!won){hits.push(hit);saveHits()}}
-document.getElementById("more").onclick=()=>document.getElementById("win").classList.remove("show");
+document.getElementById("more").onclick=()=>{
+  winPanel.inert=true;
+  winPanel.classList.remove("show");
+};
 let grab=null,last=null;const pt=e=>{const r=c.getBoundingClientRect();return[(e.clientX-r.left)/scale,(e.clientY-r.top)/scale]};
 ph.addEventListener("pointerdown",e=>{const[px,py]=pt(e);const b=balls.find(b=>Math.hypot(b.x-px,b.y-py)<b.r+10);if(b){grab=b;b.vx=b.vy=0;last=[px,py,performance.now()];ph.setPointerCapture(e.pointerId);document.getElementById("hint").style.opacity=0}});
 ph.addEventListener("pointermove",e=>{if(!grab)return;const[px,py]=pt(e),n=performance.now(),d=Math.max(8,n-last[2])/1000;grab.vx=(px-last[0])/d;grab.vy=(py-last[1])/d;grab.x=px;grab.y=Math.max(grab.r,py);last=[px,py,n]});

@@ -12,6 +12,7 @@ from aiogram.types import (CallbackQuery, FSInputFile, InlineKeyboardButton, Inl
 from game import Game
 from game_rewards import Rewards
 from game_telegram import register_reward_handlers
+from postcard_stats import PostcardStats
 
 BASE = Path(__file__).parent
 TOKEN = os.environ["BOT_TOKEN"]
@@ -92,6 +93,8 @@ DATA.mkdir(parents=True, exist_ok=True)
 rewards = Rewards(DATA / "game-rewards.sqlite3")
 game = Game(rewards, lambda: ME["u"])
 register_reward_handlers(dp, rewards, bot, lambda: rewards.admin_chats(ADMINS), is_admin, lambda: ME["u"])
+postcard_stats = PostcardStats(DATA / "postcard-stats.sqlite3", load, DOMAIN)
+postcard_stats.register_telegram(dp, is_admin)
 
 
 def card_kb(i, ids):
@@ -140,7 +143,7 @@ async def inline(q: InlineQuery):
     res = [InlineQueryResultPhoto(id=cid, photo_url=f"{DOMAIN}/cards/{cid}.jpg?v={VER}",
                                   thumbnail_url=f"{DOMAIN}/cards/{cid}.jpg?v={VER}", photo_width=W, photo_height=IH + S)
            for cid in ids[:50]]
-    await q.answer(res, cache_time=30, is_personal=False)
+    await q.answer(res, cache_time=0, is_personal=True)
 
 
 @dp.message(Command("myid"))
@@ -204,6 +207,7 @@ async def main():
     app = web.Application()
     app.router.add_get("/", page); app.router.add_get("/api/cards", api); app.router.add_get("/cards/{cid}.jpg", card)
     app.router.add_get("/ui-language.js", ui_language)
+    app.router.add_post("/api/postcard-events", postcard_stats.web_event)
     game.routes(app)
     runner = web.AppRunner(app); await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 8080))).start()
