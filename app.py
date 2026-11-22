@@ -9,6 +9,9 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup,
                            InlineQuery, InlineQueryResultPhoto, InputMediaPhoto, Message)
+from game import Game
+from game_rewards import Rewards
+from game_telegram import register_reward_handlers
 
 BASE = Path(__file__).parent
 TOKEN = os.environ["BOT_TOKEN"]
@@ -85,6 +88,12 @@ def is_admin(m):
     return bool(u) and ((u.username or "").lower() in ADMINS or str(u.id) in ADMINS)
 
 
+DATA.mkdir(parents=True, exist_ok=True)
+rewards = Rewards(DATA / "game-rewards.sqlite3")
+game = Game(rewards, lambda: ME["u"])
+register_reward_handlers(dp, rewards, bot, lambda: rewards.admin_chats(ADMINS), is_admin, lambda: ME["u"])
+
+
 def card_kb(i, ids):
     n = len(ids); cid = ids[i]
     rows = [[InlineKeyboardButton(text="◀", callback_data=f"n:{(i - 1) % n}"),
@@ -98,6 +107,8 @@ def card_kb(i, ids):
 
 @dp.message(CommandStart())
 async def start(m: Message):
+    if m.chat.type == "private" and is_admin(m):
+        rewards.remember_admin(m.from_user.id, m.from_user.username)
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📞 Answer", callback_data="n:0")]])
     await m.answer("📞 BAREV, JANIK is calling…", reply_markup=kb)
 
@@ -134,6 +145,8 @@ async def inline(q: InlineQuery):
 
 @dp.message(Command("myid"))
 async def myid(m: Message):
+    if m.chat.type == "private" and is_admin(m):
+        rewards.remember_admin(m.from_user.id, m.from_user.username)
     await m.answer(f"id: {m.from_user.id}\nusername: @{m.from_user.username}")
 
 
@@ -191,6 +204,7 @@ async def main():
     app = web.Application()
     app.router.add_get("/", page); app.router.add_get("/api/cards", api); app.router.add_get("/cards/{cid}.jpg", card)
     app.router.add_get("/ui-language.js", ui_language)
+    game.routes(app)
     runner = web.AppRunner(app); await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 8080))).start()
     await dp.start_polling(bot)

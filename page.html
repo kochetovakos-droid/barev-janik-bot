@@ -106,6 +106,8 @@
          font: 400 16px/1.25 "Futura PT", sans-serif; color: #1433A2; background: #fff; }
   .msg::placeholder { color: #1433A2; opacity: .65; }
   .msg:focus-visible { outline: 2px solid var(--title); outline-offset: 3px; }
+  .catalogue p { margin: 12px 24px 24px; font-size: 19px; color: var(--ink); }
+  .catalogue .go { display: block; margin: 0 24px; text-decoration: none; }
   body { padding: 0; background: var(--bg); }
   .row, .col { display: block; }
   .phone { width: 100%; max-width: 480px; height: var(--screen-height, 100vh); height: var(--screen-height, 100dvh);
@@ -161,6 +163,7 @@
           <a class="chip" href="tel:+37477881576"><b>Call us</b><span>+374 77 88 15 76 · delivery in Yerevan</span></a>
         </div>
         <button class="send"><div><b>Send a barev</b><span>a free postcard for someone dear</span></div><em>→</em></button>
+        <button class="send open-catalogue" lang="ru"><b>Каталог</b><em aria-hidden="true">→</em></button>
       </div>
       <canvas class="balls"></canvas>
       <div class="toast"></div>
@@ -178,6 +181,13 @@
         <div class="paper">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
       </div>
       <div class="toast" role="status"></div>
+    </div>
+
+    <div class="screen pick catalogue hidden" lang="ru">
+      <div class="bar"><button class="back">← Назад</button></div>
+      <h2>Каталог</h2>
+      <p>Каталог в процессе. А пока вы можете сыграть в «Забей, джаник!» и выиграть открытку!</p>
+      <a class="go" href="/game">Играть →</a>
     </div>
   </div>
 </template>
@@ -409,6 +419,9 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   imgs.forEach((im, k) => im.onclick = () => { cur = k; mark(); });
   $(".send").onclick = () => { pick.classList.remove("hidden"); strip.scrollTop = 0; mark(); };
   $(".back").onclick = () => pick.classList.add("hidden");
+  const catalogue = $(".catalogue");
+  $(".open-catalogue").onclick = () => catalogue.classList.remove("hidden");
+  $(".catalogue .back").onclick = () => catalogue.classList.add("hidden");
   const msg = $(".msg"), go = $(".go");
   go.onclick = async () => {
     const im = imgs[cur];
