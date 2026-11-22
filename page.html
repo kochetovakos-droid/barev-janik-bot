@@ -103,6 +103,21 @@
     border-radius: 14px; color: var(--title); background: transparent; font: inherit; text-align: left; }
   .music-player button[aria-pressed="true"] { background: var(--card); color: var(--cardInk); border-color: var(--card); }
   .music audio { width: 100%; }
+  .music-toggle { position: absolute; z-index: 8; top: max(18px, env(safe-area-inset-top)); right: 22px;
+    display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%;
+    border: 2px solid var(--title); background: var(--bg); color: var(--title); cursor: pointer; }
+  .music-toggle[hidden] { display: none; }
+  .phone:has(.talk:not(.hidden)):not(:has(.music:not(.hidden), .pick:not(.hidden))) .music-toggle { right: 76px; }
+  .music-disc { width: 29px; height: 29px; border-radius: 50%; position: relative;
+    background: repeating-radial-gradient(circle, #202021 0 2px, #4b4b4e 2px 3px, #242427 3px 5px);
+    box-shadow: inset 0 0 0 1px #0a0a0d; }
+  .music-disc::before { content: ""; position: absolute; inset: 9px; border-radius: 50%;
+    background: radial-gradient(circle, #202021 0 1px, var(--title) 1px); }
+  .music-disc::after { content: ""; position: absolute; left: 13px; top: 3px; width: 3px; height: 5px;
+    border-radius: 3px; background: var(--title); }
+  .music-toggle.playing .music-disc { animation: record-spin 2.2s linear infinite; }
+  @keyframes record-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .music-toggle.playing .music-disc { animation: none; } }
   .music-status { color: var(--ink); min-height: 1.2em; }
 body{padding:0;background:var(--bg)} .row,.col{display:block} .phone{width:100%;max-width:480px;height:100vh;height:100dvh;margin:0 auto;border-radius:0;box-shadow:none}
 canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
@@ -135,6 +150,9 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 
 <template id="tpl">
   <div class="phone">
+    <button type="button" class="music-toggle" aria-label="Pause music" hidden>
+      <span class="music-disc" aria-hidden="true"></span>
+    </button>
     <div class="screen ring">
       <div class="top">Incoming call · Yerevan</div>
       <div class="title">Barev,<br>Janik</div>
@@ -169,8 +187,8 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
       <div class="bar"><button class="back music-back">← Back</button></div>
       <h2>Listen</h2>
       <div class="music-player">
-        <button type="button" data-track="/music/barev-one.mp3" aria-pressed="false">Barev, Janike ONE</button>
-        <button type="button" data-track="/music/barev-two.mp3" aria-pressed="false">Barev, Janike TWO</button>
+        <button type="button" data-track="/music/barev-two.mp3" aria-pressed="false">Barev, Janike ONE</button>
+        <button type="button" data-track="/music/barev-one.mp3" aria-pressed="false">Barev, Janike TWO</button>
       </div>
       <audio controls preload="none" aria-label="Barev player"></audio>
       <div class="music-status" role="status"></div>
@@ -375,7 +393,21 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   imgs.forEach((im, k) => im.onclick = () => { cur = k; mark(); });
   $(".send").onclick = () => { pick.classList.remove("hidden"); strip.scrollTop = 0; mark(); };
   $(".pick .back").onclick = () => pick.classList.add("hidden");
-  const music = $(".music"), audio = music.querySelector("audio");
+  const music = $(".music"), audio = music.querySelector("audio"), musicToggle = $(".music-toggle");
+  const syncMusicToggle = () => {
+    const playing = !audio.paused && !audio.ended && !audio.error;
+    const label = playing ? "Pause music" : "Resume music";
+    musicToggle.classList.toggle("playing", playing);
+    musicToggle.setAttribute("aria-label", label);
+    musicToggle.title = label;
+  };
+  for (const event of ["play", "playing", "pause", "ended", "error", "emptied"]) {
+    audio.addEventListener(event, syncMusicToggle);
+  }
+  musicToggle.onclick = () => {
+    if (audio.paused || audio.ended) playTrack();
+    else audio.pause();
+  };
   const tracks = [...music.querySelectorAll("[data-track]")], status = $(".music-status");
   $(".listen").onclick = () => {
     music.classList.remove("hidden");
@@ -383,16 +415,20 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
     if (!audio.getAttribute("src")) tracks[0].focus();
   };
   $(".music-back").onclick = () => {
-    audio.pause();
     music.classList.add("hidden");
-    $(".listen").focus();
+    $(".listen").focus({ preventScroll: true });
   };
-  tracks.forEach(track => track.onclick = async () => {
-    if (audio.getAttribute("src") !== track.dataset.track) audio.src = track.dataset.track;
-    tracks.forEach(item => item.setAttribute("aria-pressed", String(track === item)));
+  async function playTrack() {
     status.textContent = "";
     try { await audio.play(); }
     catch (error) { if (error.name !== "AbortError") status.textContent = "Could not play the track. Tap to try again."; }
+    finally { syncMusicToggle(); }
+  }
+  tracks.forEach(track => track.onclick = () => {
+    if (audio.getAttribute("src") !== track.dataset.track) audio.src = track.dataset.track;
+    tracks.forEach(item => item.setAttribute("aria-pressed", String(track === item)));
+    musicToggle.hidden = false;
+    playTrack();
   });
   audio.addEventListener("error", () => { status.textContent = "Track unavailable. Try again in a moment."; });
   $(".go").onclick = async () => {
