@@ -97,6 +97,15 @@
   .cards img.sel { outline-color: var(--title); transform: scale(.97); }
   .dots { display: none; }
   .pick h2 { padding-bottom: 4px; }
+  .pick { overflow-y: auto; padding-top: clamp(14px, calc(var(--screen-height, 100vh) * .07), 50px);
+          padding-bottom: clamp(12px, calc(var(--screen-height, 100vh) * .04), 30px); }
+  .pick .bar, .pick h2, .pick .foot { flex-shrink: 0; }
+  .pick .cards { min-height: 80px; }
+  .pick .foot { margin-top: 12px; gap: 12px; }
+  .msg { width: 100%; border: 0; border-radius: 14px; padding: 12px 14px; resize: none;
+         font: 400 16px/1.25 "Futura PT", sans-serif; color: #1433A2; background: #fff; }
+  .msg::placeholder { color: #1433A2; opacity: .65; }
+  .msg:focus-visible { outline: 2px solid var(--title); outline-offset: 3px; }
   body { padding: 0; background: var(--bg); }
   .row, .col { display: block; }
   .phone { width: 100%; max-width: 480px; height: var(--screen-height, 100vh); height: var(--screen-height, 100dvh);
@@ -164,9 +173,11 @@
 </div>
       <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="foot">
+        <textarea class="msg" rows="2" maxlength="140" placeholder="Add a message (optional)" aria-label="Add a message (optional)"></textarea>
         <button class="go">Send →</button>
         <div class="paper">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
       </div>
+      <div class="toast" role="status"></div>
     </div>
   </div>
 </template>
@@ -177,6 +188,10 @@ const PHONE = "+37477881576";
 const css = (el, v) => getComputedStyle(el).getPropertyValue(v).trim();
 let actx;
 function audio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} return actx; }
+function unlockAudio() {
+  const a = audio();
+  if (a && a.state !== "running") a.resume().catch(() => {});
+}
 function tone(f, t, dur, vol, type) {
   const a = audio(); if (!a) return;
   const o = a.createOscillator(), g = a.createGain(); o.type = type || "sine"; o.frequency.value = f;
@@ -193,6 +208,44 @@ function vcard() {
     "ADR;TYPE=WORK:;;8 Pap Tagavor St (courtyard entrance);Yerevan;;;Armenia",
     "URL:https://instagram.com/barev.janik","NOTE:Open 12:00-20:00. Delivery across Yerevan.","END:VCARD"].filter(Boolean).join("\r\n");
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([v], {type: "text/vcard"})); a.download = "barev-janik.vcf"; a.click();
+}
+
+function withMsg(img, text) {
+  const width = img.naturalWidth, height = img.naturalHeight;
+  const artHeight = Math.min(height, Math.round(width * 894 / 720)), footerHeight = height - artHeight;
+  const pad = 40, lineHeight = 58, textWidth = width - pad * 2;
+  const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
+  const font = '500 46px "Futura PT", sans-serif';
+  ctx.font = font;
+  const lines = [];
+  for (const paragraph of text.split("\n")) {
+    let line = "";
+    for (const word of paragraph.trim().split(/\s+/)) {
+      const next = line ? line + " " + word : word;
+      if (line && ctx.measureText(next).width > textWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
+    }
+    lines.push(line);
+  }
+  const band = pad * 2 + lines.length * lineHeight - 12;
+  canvas.width = width;
+  canvas.height = height + band;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, width, canvas.height);
+  ctx.drawImage(img, 0, 0, width, artHeight, 0, 0, width, artHeight);
+  if (footerHeight > 0) {
+    ctx.drawImage(img, 0, artHeight, width, footerHeight, 0, artHeight + band, width, footerHeight);
+  }
+  ctx.font = font;
+  ctx.fillStyle = "#1433A2";
+  ctx.textBaseline = "top";
+  lines.forEach((line, i) => ctx.fillText(line, pad, artHeight + pad + i * lineHeight, textWidth));
+  const jpeg = canvas.toDataURL("image/jpeg", .9).split(",")[1];
+  return new Blob([Uint8Array.from(atob(jpeg), char => char.charCodeAt(0))], {type: "image/jpeg"});
 }
 
 const viewport = window.visualViewport;
@@ -327,9 +380,13 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   const DECL = ["You can't decline a barev, janik.", "Still no? We'll keep calling.", "OK, the balls will answer for you."];
   $(".decline").onclick = () => {
     toast(ring, DECL[Math.min(declines, 2)]); hs.classList.add("fast"); setTimeout(() => hs.classList.remove("fast"), 2200);
-    if (++declines >= 3) setTimeout(() => $(".accept").click(), 1200);
+    if (++declines >= 3) {
+      unlockAudio();
+      setTimeout(() => $(".accept").click(), 1200);
+    }
   };
   $(".accept").onclick = () => {
+    unlockAudio();
     chime(); ring.classList.add("hidden"); talk.classList.remove("hidden");
     let sec = 0; timer.textContent = "00:00"; clearInterval(tick);
     tick = setInterval(() => { sec++; timer.textContent = String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); }, 1000);
@@ -352,12 +409,48 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   imgs.forEach((im, k) => im.onclick = () => { cur = k; mark(); });
   $(".send").onclick = () => { pick.classList.remove("hidden"); strip.scrollTop = 0; mark(); };
   $(".back").onclick = () => pick.classList.add("hidden");
-  $(".go").onclick = async () => {
-    const im = imgs[cur], blob = await (await fetch(im.src)).blob(), file = new File([blob], "barev-janik.jpg", { type: "image/jpeg" });
-    let sent = false;
-    try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); sent = true; } } catch (e) { if (e.name === "AbortError") return; }
-    if (!sent) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "barev-janik.jpg"; a.click(); }
-    pick.classList.add("hidden"); toast(talk, "Barev delivered."); tone(880, 0, .4, .2); tone(1175, .12, .5, .2); pit.jump();
+  const msg = $(".msg"), go = $(".go");
+  go.onclick = async () => {
+    const im = imgs[cur];
+    if (!im) return toast(pick, "No postcards available yet.");
+    const text = msg.value.trim();
+    go.disabled = true;
+    try {
+      let blob;
+      if (text) {
+        if (!im.naturalWidth) await im.decode();
+        blob = withMsg(im, text);
+      } else {
+        const response = await fetch(im.src);
+        if (!response.ok) throw new Error("Could not load postcard");
+        blob = await response.blob();
+      }
+      const file = new File([blob], "barev-janik.jpg", {type: "image/jpeg"});
+      let sent = false;
+      try {
+        if (navigator.canShare?.({files: [file]})) {
+          await navigator.share({files: [file]});
+          sent = true;
+        }
+      } catch (error) {
+        if (error.name === "AbortError") return;
+      }
+      if (!sent) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = file.name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      }
+      msg.value = "";
+      pick.classList.add("hidden");
+      toast(talk, sent ? "Barev shared." : "Postcard saved.");
+      tone(880, 0, .4, .2); tone(1175, .12, .5, .2); pit.jump();
+    } catch {
+      toast(pick, "Could not prepare the postcard. Try again.");
+    } finally {
+      go.disabled = false;
+    }
   };
 }));
 </script>
