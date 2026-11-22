@@ -103,11 +103,10 @@
     border-radius: 14px; color: var(--title); background: transparent; font: inherit; text-align: left; }
   .music-player button[aria-pressed="true"] { background: var(--card); color: var(--cardInk); border-color: var(--card); }
   .music audio { width: 100%; }
-  .music-toggle { position: absolute; z-index: 8; top: max(18px, env(safe-area-inset-top)); right: 22px;
+  .music-toggle { position: absolute; z-index: 8; top: max(8px, env(safe-area-inset-top)); right: 22px;
     display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%;
     border: 2px solid var(--title); background: var(--bg); color: var(--title); cursor: pointer; }
   .music-toggle[hidden] { display: none; }
-  .phone:has(.talk:not(.hidden)):not(:has(.music:not(.hidden), .pick:not(.hidden))) .music-toggle { right: 76px; }
   .music-disc { width: 29px; height: 29px; border-radius: 50%; position: relative;
     background: repeating-radial-gradient(circle, #202021 0 2px, #4b4b4e 2px 3px, #242427 3px 5px);
     box-shadow: inset 0 0 0 1px #0a0a0d; }
@@ -122,7 +121,7 @@
 body{padding:0;background:var(--bg)} .row,.col{display:block} .phone{width:100%;max-width:480px;height:100vh;height:100dvh;margin:0 auto;border-radius:0;box-shadow:none}
 canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 .phone{height:var(--h,100dvh)!important}
-.screen{padding:max(18px,env(safe-area-inset-top)) 22px max(20px,env(safe-area-inset-bottom))}
+.screen{padding:calc(54px + env(safe-area-inset-top)) 22px max(20px,env(safe-area-inset-bottom))}
 .ring .title{font-size:clamp(44px,15vw,62px);margin-top:14px}
 .talk .title{font-size:clamp(40px,12.5vw,52px);min-height:0;margin-top:10px}
 .grid{margin-top:clamp(10px,2vh,16px)}
@@ -143,6 +142,16 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 .fld{width:100%;border:0;border-radius:12px;padding:12px 14px;font:400 16px "Futura PT",sans-serif;color:#1433A2;background:#fff;margin-top:8px;outline:none}
 .fld::placeholder{color:#1433A2;opacity:.5}
 .prod .foot,.shopscr .foot{padding:0 24px}
+.languages { position: absolute; z-index: 9; top: max(14px, env(safe-area-inset-top)); left: 22px;
+  display: flex; align-items: center; gap: 4px; color: var(--title, #D9F813); }
+.languages button { min-width: 37px; min-height: 30px; padding: 3px 6px;
+  border: 1px solid currentColor; border-radius: 16px; background: transparent;
+  color: inherit; cursor: pointer; font: 600 12px system-ui, sans-serif; }
+.languages button[aria-pressed="true"] { background: var(--card, #D9F813); color: var(--cardInk, #1433A2); border-color: transparent; }
+  .game-panel { position: absolute; inset: calc(52px + env(safe-area-inset-top)) 0 0;
+    z-index: 8; background: var(--bg); }
+  .game-panel[hidden] { display: none; }
+  .game-panel iframe { width: 100%; height: 100%; border: 0; display: block; }
 </style>
 </head>
 <body>
@@ -150,79 +159,86 @@ canvas.balls{position:fixed;inset:0;width:100vw;height:var(--h,100dvh)}
 
 <template id="tpl">
   <div class="phone">
+    <div class="languages" role="group" aria-label="Language" data-copy-label="Language">
+  <button type="button" data-lang="ru" lang="ru" aria-label="Русский" aria-pressed="false">RU</button>
+  <button type="button" data-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+  <button type="button" data-lang="hy" lang="hy" aria-label="Հայերեն" aria-pressed="false">ՀԱՅ</button>
+</div>
     <button type="button" class="music-toggle" aria-label="Pause music" hidden>
       <span class="music-disc" aria-hidden="true"></span>
     </button>
     <div class="screen ring">
-      <div class="top">Incoming call · Yerevan</div>
+      <div class="top" data-copy="Incoming call · Yerevan">Incoming call · Yerevan</div>
       <div class="title">Barev,<br>Janik</div>
-      <div class="sub">is calling you</div>
+      <div class="sub" data-copy="is calling you">is calling you</div>
       <div class="handset"><div class="pulse"></div><div class="pulse"></div><div class="pulse"></div><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></div>
       <div class="actions">
-        <button class="btn decline"><i><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></i>Decline</button>
-        <button class="btn accept"><i><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></i>Answer</button>
+        <button class="btn decline"><i><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></i><span data-copy="Decline">Decline</span></button>
+        <button class="btn accept"><i><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></i><span data-copy="Answer">Answer</span></button>
       </div>
       <div class="toast"></div>
     </div>
 
     <div class="screen talk hidden">
-      <div class="bar"><div class="top"><span class="timer">00:00</span> · On the line</div>
-        <button class="hang" aria-label="Hang up"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button></div>
+      <div class="bar"><div class="top"><span class="timer">00:00</span> <span data-copy="· On the line">· On the line</span></div>
+        <button class="hang" aria-label="Hang up" data-copy-label="Hang up"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button></div>
       <div class="title said"></div>
-      <p class="trans">"Hello, dear" in Armenian</p>
+      <p class="trans" data-copy="&quot;Hello, dear&quot; in Armenian">"Hello, dear" in Armenian</p>
       <div class="grid">
-        <button class="chip vcf"><b>Save us</b><span>to your contacts</span></button>
-        <a class="chip" target="_blank" href="https://maps.google.com/?q=8+Pap+Tagavor+St,+Yerevan"><b>Come by</b><span>8 Pap Tagavor St, courtyard · 12-20</span></a>
+        <button class="chip vcf"><b data-copy="Save us">Save us</b><span data-copy="to your contacts">to your contacts</span></button>
+        <a class="chip" target="_blank" href="https://maps.google.com/?q=8+Pap+Tagavor+St,+Yerevan"><b data-copy="Come by">Come by</b><span data-copy="8 Pap Tagavor St, courtyard · 12-20">8 Pap Tagavor St, courtyard · 12-20</span></a>
         <a class="chip" target="_blank" href="https://instagram.com/barev.janik"><b>Instagram</b><span>@barev.janik</span></a>
-        <a class="chip" href="tel:+37477881576"><b>Call us</b><span>+374 77 88 15 76 · delivery in Yerevan</span></a>
+        <a class="chip" href="tel:+37477881576"><b data-copy="Call us">Call us</b><span data-copy="+374 77 88 15 76 · delivery in Yerevan">+374 77 88 15 76 · delivery in Yerevan</span></a>
       </div>
-      <button class="send"><div><b>Send a barev</b><span>a free postcard for someone dear</span></div><em>→</em></button>
-      <a class="send play" href="/game"><div><b>Shoot a barev</b><span>Score five and win a paper postcard</span></div><em>→</em></a>
-      <button class="send listen"><div><b>Listen</b><span>Two Barev songs</span></div><em aria-hidden="true">♪</em></button>
+      <button class="send"><div><b data-copy="Send a barev">Send a barev</b><span data-copy="a free postcard for someone dear">a free postcard for someone dear</span></div><em>→</em></button>
+      <a class="send play" href="/game"><div><b data-copy="Shoot a barev">Shoot a barev</b><span data-copy="Score five and win a paper postcard">Score five and win a paper postcard</span></div><em>→</em></a>
+      <button class="send listen"><div><b data-copy="Listen">Listen</b><span data-copy="Two Barev songs">Two Barev songs</span></div><em aria-hidden="true">♪</em></button>
       <canvas class="balls"></canvas>
       <div class="toast"></div>
     </div>
 
+    <div class="game-panel" hidden></div>
     <div class="screen music hidden">
-      <div class="bar"><button class="back music-back">← Back</button></div>
-      <h2>Listen</h2>
+      <div class="bar"><button class="back music-back" data-copy="← Back">← Back</button></div>
+      <h2 data-copy="Listen">Listen</h2>
       <div class="music-player">
         <button type="button" data-track="/music/barev-two.mp3" aria-pressed="false">Barev, Janike ONE</button>
         <button type="button" data-track="/music/barev-one.mp3" aria-pressed="false">Barev, Janike TWO</button>
       </div>
-      <audio controls preload="none" aria-label="Barev player"></audio>
+      <audio controls preload="none" aria-label="Barev player" data-copy-label="Barev player"></audio>
       <div class="music-status" role="status"></div>
     </div>
 
     <div class="screen pick hidden">
-      <div class="bar"><button class="back">← Back</button></div>
-      <h2>Pick a barev</h2>
+      <div class="bar"><button class="back" data-copy="← Back">← Back</button></div>
+      <h2 data-copy="Pick a barev">Pick a barev</h2>
       <div class="cards">
 </div>
       <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="foot">
-        <textarea class="msg" rows="2" maxlength="140" placeholder="Add a message (optional)"></textarea>
-        <button class="go">Send →</button>
-        <div class="paper">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
+        <textarea class="msg" rows="2" maxlength="140" placeholder="Add a message (optional)" data-copy-placeholder="Add a message (optional)"></textarea>
+        <button class="go" data-copy="Send →">Send →</button>
+        <div class="paper" data-copy="Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
         <div class="toast"></div>
       </div>
     </div>
     <div class="screen pick shopscr hidden">
-      <div class="bar"><button class="back sback">← Back</button></div>
-      <h2>Shop</h2>
+      <div class="bar"><button class="back sback" data-copy="← Back">← Back</button></div>
+      <h2 data-copy="Shop">Shop</h2>
       <div class="prods"></div>
-      <div class="foot"><div class="paper">8 Pap Tagavor St, courtyard · 12:00-20:00 · delivery in Yerevan</div></div>
+      <div class="foot"><div class="paper" data-copy="8 Pap Tagavor St, courtyard · 12:00-20:00 · delivery in Yerevan">8 Pap Tagavor St, courtyard · 12:00-20:00 · delivery in Yerevan</div></div>
     </div>
 
     <div class="screen pick prod hidden">
-      <div class="bar"><button class="back pback">← Back</button></div>
+      <div class="bar"><button class="back pback" data-copy="← Back">← Back</button></div>
       <div class="pbody"></div>
-      <div class="foot"><button class="go order">Order →</button><div class="paper">We'll call you to confirm the order.</div></div>
+      <div class="foot"><button class="go order" data-copy="Order →">Order →</button><div class="paper" data-copy="We&#x27;ll call you to confirm the order.">We'll call you to confirm the order.</div></div>
       <div class="toast"></div>
     </div>
   </div>
 </template>
 
+<script src="/ui-language.js"></script>
 <script>
 const setH = () => document.documentElement.style.setProperty("--h", innerHeight + "px"); setH(); addEventListener("resize", setH);
 async function withMsg(src, txt) {
@@ -360,10 +376,15 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   const col = document.createElement("div"); col.className = "col"; col.innerHTML = ""; document.body.classList.add(cls);
   const ph = tpl.content.firstElementChild.cloneNode(true); ph.classList.add(cls); col.appendChild(ph); row.appendChild(col);
   const $ = s => ph.querySelector(s);
+  const ui = createBarevLanguage(ph, translate => {
+    syncMusicToggle();
+    if (gameFrame) gameFrame.title = translate("Shoot a barev");
+  });
+  const tr = ui.text;
   $(".cards").innerHTML = info.cards.map(c => '<img data-k="' + c + '" src="/cards/' + c + '.jpg?v=' + info.v + '" alt="BAREV, JANIK postcard">').join("");
   const ring = $(".ring"), talk = $(".talk"), pick = $(".pick"), hs = $(".handset"), said = $(".said"), timer = $(".timer"),
         chips = ph.querySelectorAll(".chip, .send"), pit = new Pit(talk, $(".balls"), ph);
-  const toast = (scr, msg) => { const t = scr.querySelector(".toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); };
+  const toast = (scr, msg) => { const t = scr.querySelector(".toast"); t.textContent = tr(msg); t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); };
   let tick, declines = 0;
   const DECL = ["You can't decline a barev, janik.", "Still no? We'll keep calling.", "OK, the balls will answer for you."];
   $(".decline").onclick = () => {
@@ -396,7 +417,7 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   const music = $(".music"), audio = music.querySelector("audio"), musicToggle = $(".music-toggle");
   const syncMusicToggle = () => {
     const playing = !audio.paused && !audio.ended && !audio.error;
-    const label = playing ? "Pause music" : "Resume music";
+    const label = tr(playing ? "Pause music" : "Resume music");
     musicToggle.classList.toggle("playing", playing);
     musicToggle.setAttribute("aria-label", label);
     musicToggle.title = label;
@@ -421,7 +442,7 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   async function playTrack() {
     status.textContent = "";
     try { await audio.play(); }
-    catch (error) { if (error.name !== "AbortError") status.textContent = "Could not play the track. Tap to try again."; }
+    catch (error) { if (error.name !== "AbortError") status.textContent = tr("Could not play the track. Tap to try again."); }
     finally { syncMusicToggle(); }
   }
   tracks.forEach(track => track.onclick = () => {
@@ -430,7 +451,7 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
     musicToggle.hidden = false;
     playTrack();
   });
-  audio.addEventListener("error", () => { status.textContent = "Track unavailable. Try again in a moment."; });
+  audio.addEventListener("error", () => { status.textContent = tr("Track unavailable. Try again in a moment."); });
   $(".go").onclick = async () => {
     const im = imgs[cur];
     if (!im) return toast(pick, "No postcards available yet");
@@ -450,15 +471,17 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
     shop.classList.remove("hidden");
     try { items = await fetch("/api/products").then(r => r.json()); } catch (e) { items = []; }
     prods.innerHTML = items.length ? items.map((p, i) => `<button class="item" data-i="${i}"><img src="/products/${p.id}.jpg" alt=""><b>${esc(p.name)}</b><span>${fmt(p.price)}</span></button>`).join("")
-                                   : '<div class="empty">The collection is coming here soon.</div>';
+                                   : '<div class="empty" data-copy="The collection is coming here soon.">The collection is coming here soon.</div>';
+    ui.refresh();
     prods.querySelectorAll(".item").forEach(b => b.onclick = () => openP(items[+b.dataset.i]));
   };
-  const opts = (k, arr) => arr.length ? `<div class="lbl">${k === "size" ? "Size" : "Color"}</div>` + arr.map(v => `<button class="opt" data-k="${k}" data-v="${esc(v)}">${esc(v)}</button>`).join("") : "";
+  const opts = (k, arr) => arr.length ? `<div class="lbl" data-copy="${k === "size" ? "Size" : "Color"}"></div>` + arr.map(v => `<button class="opt" data-k="${k}" data-v="${esc(v)}">${esc(v)}</button>`).join("") : "";
   function openP(p) {
     sel = { id: p.id, size: "", color: "" };
     pbody.innerHTML = `<img src="/products/${p.id}.jpg" alt=""><h3>${esc(p.name)}</h3><div class="price">${fmt(p.price)}</div>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}`
       + opts("color", p.colors) + opts("size", p.sizes)
-      + `<div class="lbl">Your contact</div><input class="fld oname" placeholder="Name" maxlength="60"><input class="fld ophone" type="tel" placeholder="Phone or WhatsApp" maxlength="30"><input class="fld onote" placeholder="Comment (optional)" maxlength="300">`;
+      + `<div class="lbl" data-copy="Your contact">Your contact</div><input class="fld oname" placeholder="Name" data-copy-placeholder="Name" maxlength="60"><input class="fld ophone" type="tel" placeholder="Phone or WhatsApp" data-copy-placeholder="Phone or WhatsApp" maxlength="30"><input class="fld onote" placeholder="Comment (optional)" data-copy-placeholder="Comment (optional)" maxlength="300">`;
+    ui.refresh();
     pbody.querySelectorAll(".opt").forEach(b => b.onclick = () => { pbody.querySelectorAll(`.opt[data-k="${b.dataset.k}"]`).forEach(x => x.classList.remove("on")); b.classList.add("on"); sel[b.dataset.k] = b.dataset.v; });
     pbody.scrollTop = 0; prod.classList.remove("hidden"); prod.dataset.need = (p.sizes.length ? "s" : "") + (p.colors.length ? "c" : "");
   }
@@ -474,6 +497,39 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
     if (!ok) return toast(prod, "Could not send. Call us: +374 77 88 15 76");
     prod.classList.add("hidden"); shop.classList.add("hidden"); toast(talk, "Order sent. We'll call you."); pit.jump();
   };
+  const gamePanel = $(".game-panel"), gameLink = $(".play"), screens = ph.querySelectorAll(".screen");
+  let gameFrame;
+  function syncGameRoute() {
+    const playingGame = location.pathname === "/game";
+    gamePanel.hidden = !playingGame;
+    for (const screen of screens) screen.inert = playingGame;
+    if (playingGame && !gameFrame) {
+      gameFrame = document.createElement("iframe");
+      gameFrame.title = tr("Shoot a barev");
+      gameFrame.src = "/game/board";
+      gamePanel.appendChild(gameFrame);
+    }
+    if (!playingGame && gameFrame) {
+      gameFrame.remove();
+      gameFrame = undefined;
+    }
+  }
+  gameLink.addEventListener("click", event => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    history.pushState({ barevGame: true }, "", gameLink.href);
+    syncGameRoute();
+  });
+  window.addEventListener("popstate", syncGameRoute);
+  window.addEventListener("message", event => {
+    if (event.origin !== location.origin || event.source !== gameFrame?.contentWindow || event.data !== "barev:exit-game") return;
+    if (history.state?.barevGame) history.back();
+    else {
+      history.replaceState(null, "", "/");
+      syncGameRoute();
+    }
+  });
+  syncGameRoute();
   if (location.hash === "#shop") { $(".accept").click(); setTimeout(openShop, 400); }
 
 }));

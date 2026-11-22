@@ -10,7 +10,7 @@ from aiohttp import web
 GAME_TEMPLATE = Path(__file__).with_name("game.html")
 SESSION_AGE = 3600
 HOOP_Y = 245
-RIM_CLEARANCE = 31
+RIM_CLEARANCE = 44 - 5
 COOKIE_NAME = "barev_original"
 TOKEN_FORMAT = re.compile(r"[A-Za-z0-9_-]{32}")
 
@@ -116,6 +116,6 @@ class Game:
             return self.state(self.session_for_token(db, row["token"]))
 
     def routes(self, app):
-        app.router.add_get("/game", self.page)
+        app.router.add_get("/game/board", self.page)
         app.router.add_post("/game/session", self.start)
         app.router.add_post("/game/hit", self.hit)

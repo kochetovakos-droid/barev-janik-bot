@@ -215,6 +215,10 @@ async def page(_):
     return web.FileResponse(BASE / "page.html")
 
 
+async def ui_language(_):
+    return web.FileResponse(BASE / "ui-language.js", headers={"Content-Type": "text/javascript; charset=utf-8"})
+
+
 async def music(request):
     track = request.match_info["track"]
     return web.FileResponse(BASE / track, headers={"Content-Type": "audio/mpeg"})
@@ -236,6 +240,8 @@ async def main():
     app.router.add_get("/", page); app.router.add_get("/api/cards", api); app.router.add_get("/cards/{cid}.jpg", card)
     CAT.routes(app)
     GAME.routes(app)
+    app.router.add_get("/game", page)
+    app.router.add_get("/ui-language.js", ui_language)
     app.router.add_get("/music/{track:barev-one[.]mp3|barev-two[.]mp3}", music)
     if DOMAIN:
         try:
