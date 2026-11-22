@@ -172,6 +172,10 @@ async def page(_):
     return web.FileResponse(BASE / "page.html")
 
 
+async def ui_language(_):
+    return web.FileResponse(BASE / "ui-language.js", headers={"Content-Type": "text/javascript; charset=utf-8"})
+
+
 async def api(_):
     return web.json_response({"cards": load(), "bot": ME["u"], "v": VER})
 
@@ -186,6 +190,7 @@ async def main():
     ME["u"] = (await bot.get_me()).username
     app = web.Application()
     app.router.add_get("/", page); app.router.add_get("/api/cards", api); app.router.add_get("/cards/{cid}.jpg", card)
+    app.router.add_get("/ui-language.js", ui_language)
     runner = web.AppRunner(app); await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 8080))).start()
     await dp.start_polling(bot)
