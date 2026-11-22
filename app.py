@@ -8,11 +8,7 @@ from aiohttp import web
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup,
-                           InlineQuery, InlineQueryResultPhoto, InputMediaPhoto, Message, MenuButtonWebApp, WebAppInfo)
-from catalog import Catalog
-from game import Game
-from game_rewards import Rewards
-from game_telegram import register_reward_handlers
+                           InlineQuery, InlineQueryResultPhoto, InputMediaPhoto, Message)
 
 BASE = Path(__file__).parent
 TOKEN = os.environ["BOT_TOKEN"]
@@ -25,8 +21,8 @@ SRC, OUT, DB = DATA / "src", DATA / "cards", DATA / "cards.json"
 W, IH, S = 720, 894, 170
 BLUE = (20, 51, 162)
 LINES = ["8 Pap Tagavor St, Yerevan", "courtyard · 12:00-20:00", "@barev.janik · made in Yerevan"]
-FB = ImageFont.truetype(str(BASE / "Heavy.otf"), 34)
-FM = ImageFont.truetype(str(BASE / "Medium.otf"), 21)
+FB = ImageFont.truetype(str(BASE / "fonts/Heavy.otf"), 34)
+FM = ImageFont.truetype(str(BASE / "fonts/Medium.otf"), 21)
 
 
 def qr_img():
@@ -67,7 +63,7 @@ def setup():
     for p in (SRC, OUT): p.mkdir(parents=True, exist_ok=True)
     if not DB.exists():
         ids = []
-        for f in sorted(BASE.glob("[0-9][0-9]_*.jpg")):
+        for f in sorted((BASE / "seed").glob("*.jpg")):
             cid = f.stem.split("_", 1)[1]; shutil.copy(f, SRC / f"{cid}.jpg"); ids.append(cid)
         save(ids)
     stamp = DATA / "qr.txt"; fresh = not stamp.exists() or stamp.read_text() != QR_URL
@@ -84,33 +80,9 @@ dp = Dispatcher()
 ME = {"u": ""}
 
 
-ADMIN_DB = DATA / "admins.json"
-
-
-def admin_chats():
-    return json.loads(ADMIN_DB.read_text()) if ADMIN_DB.exists() else []
-
-
 def is_admin(m):
     u = m.from_user
-    ok = bool(u) and ((u.username or "").lower() in ADMINS or str(u.id) in ADMINS)
-    if ok and m.chat.id not in admin_chats():
-        ADMIN_DB.parent.mkdir(parents=True, exist_ok=True); ADMIN_DB.write_text(json.dumps(admin_chats() + [m.chat.id]))
-    return ok
-
-
-CAT = Catalog(DATA, bot, admin_chats)
-
-
-def reward_admin(event):
-    user = event.from_user
-    return bool(user) and (str(user.id) in ADMINS or (user.username or "").lower() in ADMINS)
-
-
-DATA.mkdir(parents=True, exist_ok=True)
-REWARDS = Rewards(DATA / "game-rewards.sqlite3")
-GAME = Game(REWARDS, lambda: ME["u"])
-register_reward_handlers(dp, REWARDS, bot, admin_chats, reward_admin, lambda: ME["u"])
+    return bool(u) and ((u.username or "").lower() in ADMINS or str(u.id) in ADMINS)
 
 
 def card_kb(i, ids):
@@ -124,21 +96,8 @@ def card_kb(i, ids):
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-@dp.message(Command("products"))
-async def products(m: Message):
-    if is_admin(m):
-        await CAT.listing(m)
-
-
-@dp.message(Command("pdel"))
-async def pdel(m: Message):
-    if is_admin(m):
-        await CAT.delete(m)
-
-
 @dp.message(CommandStart())
 async def start(m: Message):
-    is_admin(m)
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📞 Answer", callback_data="n:0")]])
     await m.answer("📞 BAREV, JANIK is calling…", reply_markup=kb)
 
@@ -202,8 +161,6 @@ async def add(m: Message):
         return
     obj = m.photo[-1] if m.photo else m.document
     buf = io.BytesIO(); await bot.download(obj, destination=buf)
-    if (m.caption or "").strip():
-        return await CAT.add(m, buf)
     cid = uuid.uuid4().hex[:8]
     Image.open(buf).convert("RGB").save(SRC / f"{cid}.jpg", quality=92)
     render(SRC / f"{cid}.jpg", OUT / f"{cid}.jpg", qr_img())
@@ -213,15 +170,6 @@ async def add(m: Message):
 
 async def page(_):
     return web.FileResponse(BASE / "page.html")
-
-
-async def ui_language(_):
-    return web.FileResponse(BASE / "ui-language.js", headers={"Content-Type": "text/javascript; charset=utf-8"})
-
-
-async def music(request):
-    track = request.match_info["track"]
-    return web.FileResponse(BASE / track, headers={"Content-Type": "audio/mpeg"})
 
 
 async def api(_):
@@ -238,16 +186,6 @@ async def main():
     ME["u"] = (await bot.get_me()).username
     app = web.Application()
     app.router.add_get("/", page); app.router.add_get("/api/cards", api); app.router.add_get("/cards/{cid}.jpg", card)
-    CAT.routes(app)
-    GAME.routes(app)
-    app.router.add_get("/game", page)
-    app.router.add_get("/ui-language.js", ui_language)
-    app.router.add_get("/music/{track:barev-one[.]mp3|barev-two[.]mp3}", music)
-    if DOMAIN:
-        try:
-            await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="Shoot a barev", web_app=WebAppInfo(url=DOMAIN.rstrip("/") + "/game")))
-        except Exception:
-            pass
     runner = web.AppRunner(app); await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 8080))).start()
     await dp.start_polling(bot)
