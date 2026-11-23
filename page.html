@@ -187,8 +187,9 @@
   .music-screen .music-track + .music-track {border-top:2px solid var(--title)}
   .music-screen .music-track span {font-size:22px}
   .music-screen .music-track[aria-pressed="true"] {background:var(--card);color:var(--cardInk)}
-  .music-screen.playing .music-art .record-disc {animation:record-spin 3s linear infinite}
-  @media(prefers-reduced-motion:reduce){.music-screen.playing .music-art .record-disc{animation:none}}
+  .music-art {animation:record-spin 3s linear infinite;animation-play-state:paused}
+  .music-screen.playing .music-art {animation-play-state:running}
+  @media(prefers-reduced-motion:reduce){.music-art{animation:none}}
   @media(max-height:600px){.music-art{width:150px;height:150px;margin:18px auto}}
 
 </style>
