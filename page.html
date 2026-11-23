@@ -156,10 +156,23 @@
     .grid { margin-top: 12px; }
   }
 
-  .talk {overflow-y:auto}
-  .talk-content {flex:none;overflow:visible;padding-bottom:18px}
-  .ball-floor {position:relative;flex:none;margin-top:auto;height:140px;overflow:hidden;touch-action:none}
-  .ball-floor canvas.balls {z-index:0}
+  /* Balls use the original full-screen pit. Only text sits above their layer. */
+  html, body {height:100%;overflow:hidden}
+  .talk {overflow:hidden;padding-bottom:max(12px, env(safe-area-inset-bottom, 0px))}
+  .talk-content {flex:1;min-height:0;overflow-y:auto;z-index:auto;
+    padding-top:clamp(12px, calc(var(--screen-height, 100vh) * .025), 20px);
+    padding-bottom:clamp(96px, calc(var(--screen-height, 100vh) * .16), 128px)}
+  .talk-content .bar, .talk-content .call-status, .talk-content .title,
+  .chip b, .chip span, .send b, .send span, .send em {position:relative;z-index:5}
+  .talk canvas.balls {top:0;bottom:max(12px, env(safe-area-inset-bottom, 0px));height:calc(100% - max(12px, env(safe-area-inset-bottom, 0px)));z-index:4}
+  @media(max-width:360px), (max-height:620px) {
+    .talk .title {font-size:clamp(32px, 10.5vw, 44px);margin-top:10px}
+    .talk .grid {margin-top:12px}
+    .talk .chip {padding:8px 10px}
+    .talk .send {padding:8px 12px}
+    .talk .send b {font-size:18px}
+    .talk .send span {font-size:13px}
+  }
   .music-screen {overflow-y:auto;padding-bottom:28px}
   .music-screen .bar {flex-shrink:0}
   .music-screen .back {min-height:44px}
@@ -176,7 +189,7 @@
   .music-screen .music-track[aria-pressed="true"] {background:var(--card);color:var(--cardInk)}
   .music-screen.playing .music-art .record-disc {animation:record-spin 3s linear infinite}
   @media(prefers-reduced-motion:reduce){.music-screen.playing .music-art .record-disc{animation:none}}
-  @media(max-height:600px){.music-art{width:150px;height:150px;margin:18px auto}.ball-floor{height:120px}}
+  @media(max-height:600px){.music-art{width:150px;height:150px;margin:18px auto}}
 
 </style>
 </head>
@@ -226,7 +239,7 @@
         <button class="send"><div><b data-copy="Send a barev">Send a barev</b><span data-copy="a free postcard for someone dear">a free postcard for someone dear</span></div><em>→</em></button>
         <button class="send open-catalogue"><b data-copy="Catalogue">Catalogue</b><em aria-hidden="true">→</em></button>
       </div>
-      <div class="ball-floor"><canvas class="balls"></canvas></div>
+      <canvas class="balls"></canvas>
       <div class="toast"></div>
     </div>
 
@@ -385,7 +398,7 @@ class Pit {
     }
   }
   size() {
-    const { width, height } = this.s.getBoundingClientRect();
+    const { width, height } = this.c.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     if (width === this.W && height === this.H && dpr === this.dpr) return;
 
@@ -464,7 +477,7 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   const $ = s => ph.querySelector(s);
   $(".cards").innerHTML = info.cards.map(c => '<img data-k="' + c + '" src="/cards/' + c + '.jpg?v=' + info.v + '" alt="BAREV, JANIK postcard">').join("");
   const ring = $(".ring"), talk = $(".talk"), pick = $(".pick"), hs = $(".handset"), said = $(".said"), timer = $(".timer"),
-        chips = ph.querySelectorAll(".chip, .send"), pit = new Pit($(".ball-floor"), $(".balls"), ph);
+        chips = ph.querySelectorAll(".chip, .send"), pit = new Pit(talk, $(".balls"), ph);
   const language = createBarevLanguage(ph);
   const toast = (scr, msg) => { const t = scr.querySelector(".toast"); t.textContent = language.text(msg); t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); };
   let tick, declines = 0;
