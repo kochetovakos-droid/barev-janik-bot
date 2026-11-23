@@ -3,6 +3,7 @@ from contextlib import closing
 from html import escape
 import re
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 from aiohttp import web
 from aiogram import F
@@ -44,11 +45,15 @@ class PostcardStats:
                     method TEXT NOT NULL
                 )
             """)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(postcard_events)")}
+            if "created_at" not in columns:
+                db.execute("ALTER TABLE postcard_events ADD COLUMN created_at TEXT")
 
     def record(self, event_id, card_id, method):
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute(
-                "INSERT INTO postcard_events (event_id, card_id, method) VALUES (?, ?, ?) "
+                "INSERT INTO postcard_events (event_id, card_id, method, created_at) "
+                "VALUES (?, ?, ?, CURRENT_TIMESTAMP) "
                 "ON CONFLICT (event_id) DO NOTHING",
                 (event_id, card_id, method),
             )
@@ -77,6 +82,10 @@ class PostcardStats:
             rows = db.execute(
                 "SELECT card_id, method, COUNT(*) FROM postcard_events GROUP BY card_id, method"
             ).fetchall()
+            week_start = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+            week_total = db.execute(
+                "SELECT COUNT(*) FROM postcard_events WHERE created_at >= ?", (week_start,),
+            ).fetchone()[0]
         totals = dict.fromkeys(METHODS, 0)
         cards = {}
         for card_id, method, count in rows:
@@ -85,9 +94,14 @@ class PostcardStats:
 
         header = (
             "<b>Статистика открыток</b>\n"
+            f"Всего зарегистрировано действий · {sum(totals.values())}\n"
+            f"За последние 7 дней · {week_total}\n\n"
             f"Отправлено из бота в Telegram · {totals['telegram']}\n"
             f"Действия «Поделиться» на сайте · {totals['web_share']}\n"
             f"Скачивания с сайта · {totals['web_download']}"
+            "\n\nУчёт ведётся с момента подключения. В системном меню «Поделиться» "
+            "сайт получает событие действия. Получатель и выбранное приложение ему недоступны."
+            "\nДля отправок из бота включи Inline Feedback 100% в @BotFather."
         )
         if not cards:
             return [header + "\n\nПока нет зарегистрированных действий."]
@@ -109,6 +123,18 @@ class PostcardStats:
         ]
 
     def register_telegram(self, router, is_admin):
+        async def send_report(message):
+            for part in self.report():
+                await message.answer(part, parse_mode="HTML",
+                                     link_preview_options=LinkPreviewOptions(is_disabled=True))
+
+        @router.callback_query(F.data == "admin:stats")
+        async def stats_button(callback):
+            if callback.message.chat.type != "private" or not is_admin(callback):
+                return await callback.answer("Только для администратора.", show_alert=True)
+            await callback.answer()
+            await send_report(callback.message)
+
         @router.chosen_inline_result()
         async def chosen(result: ChosenInlineResult, event_update: Update):
             if CARD_ID.fullmatch(result.result_id):
@@ -117,6 +143,4 @@ class PostcardStats:
         @router.message(Command("stats"), F.chat.type == "private")
         async def stats(message: Message):
             if is_admin(message):
-                for part in self.report():
-                    await message.answer(part, parse_mode="HTML",
-                                         link_preview_options=LinkPreviewOptions(is_disabled=True))
+                await send_report(message)

@@ -250,6 +250,70 @@ const barevCopy = {
   "Reconnecting to save your score…": [
     "Восстанавливаем связь, чтобы сохранить счёт…",
     "Վերականգնում ենք կապը՝ հաշիվը պահպանելու համար…"
+  ],
+  "Our catalogue is coming soon. In the meantime, play Shoot a barev and win a printed postcard!": [
+    "Каталог в разработке. А пока сыграй в «Забей, джаник!» и выиграй бумажную открытку!",
+    "Կատալոգը պատրաստվում է։ Իսկ մինչ այդ խաղա և շահիր թղթե բացիկ։"
+  ],
+  "Play →": [
+    "Играть →",
+    "Խաղալ →"
+  ],
+  "Music": [
+    "Музыка",
+    "Երաժշտություն"
+  ],
+  "Music tracks": [
+    "Выбрать песню",
+    "Ընտրել երգը"
+  ],
+  "Could not play this track. Try again.": [
+    "Не удалось включить песню. Нажми ещё раз.",
+    "Երգը չնվագարկվեց։ Փորձիր նորից։"
+  ],
+  "No postcards available yet.": [
+    "Открыток пока нет.",
+    "Դեռ բացիկներ չկան։"
+  ],
+  "Postcard saved.": [
+    "Открытка сохранена.",
+    "Բացիկը պահպանվեց։"
+  ],
+  "Could not prepare the postcard. Try again.": [
+    "Не удалось подготовить открытку. Попробуй ещё раз.",
+    "Չհաջողվեց պատրաստել բացիկը։ Փորձիր նորից։"
+  ],
+  "Five baskets!": [
+    "Пять попаданий!",
+    "Հինգ դիպուկ նետում։"
+  ],
+  "Show your QR code at the shop.": [
+    "Покажи QR-код в магазине.",
+    "Ցույց տուր QR կոդը խանութում։"
+  ],
+  "Get your QR code in Telegram →": [
+    "Получить QR-код в Telegram →",
+    "Ստանալ QR կոդը Telegram-ում →"
+  ],
+  "Continue in Telegram →": [
+    "Продолжить в Telegram →",
+    "Շարունակել Telegram-ում →"
+  ],
+  "I agree that BAREV, JANIK may store my phone number, Telegram ID and username (if I have one) to issue my prize.": [
+    "Я согласна на хранение моего номера телефона, Telegram ID и ника, если он есть, в боте BAREV, JANIK для выдачи приза.",
+    "Համաձայն եմ, որ BAREV, JANIK-ը պահպանի իմ հեռախոսահամարը, Telegram ID-ն և օգտանունը՝ մրցանակը տրամադրելու համար։"
+  ],
+  "📍 BAREV, JANIK · 8 Pap Tagavor St., Yerevan, in the courtyard": [
+    "📍 BAREV, JANIK · ул. Пап Тагабор, 8, Ереван, во дворе",
+    "📍 BAREV, JANIK · Պապ Թագավորի փ. 8, Երևան, բակում"
+  ],
+  "🕛 12:00–20:00": [
+    "🕛 12:00–20:00",
+    "🕛 12:00–20:00"
+  ],
+  "🎁 Pick up your free paper postcard.": [
+    "🎁 Забери свою бумажную открытку в подарок.",
+    "🎁 Ստացիր քո նվեր թղթե բացիկը։"
   ]
 };
 

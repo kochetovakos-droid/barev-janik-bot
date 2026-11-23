@@ -112,6 +112,13 @@ def card_kb(i, ids):
 async def start(m: Message):
     if m.chat.type == "private" and is_admin(m):
         rewards.remember_admin(m.from_user.id, m.from_user.username)
+    if m.chat.type == "private" and is_admin(m):
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📊 Статистика открыток", callback_data="admin:stats")],
+            [InlineKeyboardButton(text="🎁 Призы и контакты", callback_data="admin:prizes")],
+            [InlineKeyboardButton(text="💌 Открытки", callback_data="n:0")],
+        ])
+        return await m.answer("BAREV, JANIK · управление\n\nВыбери нужный раздел.", reply_markup=kb)
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📞 Answer", callback_data="n:0")]])
     await m.answer("📞 BAREV, JANIK is calling…", reply_markup=kb)
 
@@ -156,7 +163,7 @@ async def myid(m: Message):
 @dp.message(Command("list"))
 async def lst(m: Message):
     if is_admin(m):
-        await m.answer("Postcards (newest first):\n" + "\n".join(load()) + "\n\nDelete: /del name")
+        await m.answer("Postcards (newest first):\n" + "\n".join(load()) + "\n\nDelete: /del name\n📊 Статистика — /stats\n🎁 Призы и контакты — /prizes\nМеню управления — /start")
 
 
 @dp.message(Command("del"))
@@ -192,6 +199,10 @@ async def ui_language(_):
     return web.FileResponse(BASE / "ui-language.js", headers={"Content-Type": "text/javascript; charset=utf-8"})
 
 
+async def music(request):
+    return web.FileResponse(BASE / request.match_info["filename"], headers={"Content-Type": "audio/mpeg"})
+
+
 async def api(_):
     return web.json_response({"cards": load(), "bot": ME["u"], "v": VER})
 
@@ -207,6 +218,7 @@ async def main():
     app = web.Application()
     app.router.add_get("/", page); app.router.add_get("/api/cards", api); app.router.add_get("/cards/{cid}.jpg", card)
     app.router.add_get("/ui-language.js", ui_language)
+    app.router.add_get(r"/music/{filename:barev-(?:one|two)\.mp3}", music)
     app.router.add_post("/api/postcard-events", postcard_stats.web_event)
     game.routes(app)
     runner = web.AppRunner(app); await runner.setup()

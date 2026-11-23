@@ -56,10 +56,34 @@
                   padding: 50px 24px 30px; position: relative; z-index: 5; }
   .talk-content > * { flex-shrink: 0; }
   .bar { display: flex; justify-content: space-between; align-items: center; }
+  .language-switch {display:flex;gap:4px;flex-wrap:wrap}
+  .language-switch button {min-height:36px;padding:0 9px;border:1px solid var(--ink);border-radius:22px;
+    background:transparent;color:var(--ink);font:500 13px "Futura PT",sans-serif;cursor:pointer}
+  .language-switch button[aria-pressed="true"] {background:var(--card);color:var(--cardInk);border-color:var(--card)}
+  .ring > .language-switch {margin-top:12px}
+  .call-status {margin-top:12px}
+  .call-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .record-toggle { position: relative; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%;
+                   background: #151515; color: var(--cardInk); display: grid; place-items: center; cursor: pointer; }
+  .record-disc { position: absolute; inset: 0; border-radius: 50%; background:
+                 conic-gradient(from 15deg, transparent 0 14%, #fff3 19%, transparent 23% 64%, #fff2 70%, transparent 75%),
+                 repeating-radial-gradient(circle, #252525 0 1px, #111 1px 3px); }
+  .record-toggle.playing .record-disc { animation: record-spin 3s linear infinite; }
+  @keyframes record-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .record-toggle.playing .record-disc { animation: none; } }
+  .record-symbol { position: relative; width: 19px; height: 19px; border-radius: 50%; display: grid;
+                   place-items: center; background: var(--card); font: 10px/1 sans-serif; }
+  .music-list { margin-top: 12px; padding: 6px 12px; color: var(--cardInk); background: var(--card); border-radius: 14px; }
+  .music-track { width: 100%; min-height: 42px; padding: 8px 2px; border: 0; color: inherit; background: none;
+                 font: 500 17px "Futura PT", sans-serif; text-align: left; display: flex;
+                 align-items: center; justify-content: space-between; cursor: pointer; }
+  .music-track + .music-track { border-top: 1px solid currentColor; }
+  .music-error { font-size: 14px; padding: 4px 2px; }
+  .game-frame { position: fixed; inset: 0; z-index: 10; width: 100%; height: var(--screen-height, 100vh);
+                border: 0; background: #1433A2; }
   .hang { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--no); display: grid; place-items: center; cursor: pointer; }
   .hang svg { width: 22px; height: 22px; fill: var(--noInk); transform: rotate(135deg); }
   .talk .title { font-size: 52px; margin-top: 14px; min-height: 2em; }
-  .trans { font-size: 16px; color: var(--ink); margin-top: 4px; font-weight: 400; }
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
   .chip { display: block; text-decoration: none; background: var(--card); color: var(--cardInk); border-radius: 14px; padding: 10px 12px;
           border: 0; font-family: inherit; text-align: left; cursor: pointer; opacity: 0; transform: translateY(12px); transition: .4s; }
@@ -131,67 +155,123 @@
     .talk .title { margin-top: 10px; }
     .grid { margin-top: 12px; }
   }
+
+  .talk {overflow-y:auto}
+  .talk-content {flex:none;overflow:visible;padding-bottom:18px}
+  .ball-floor {position:relative;flex:none;margin-top:auto;height:140px;overflow:hidden;touch-action:none}
+  .ball-floor canvas.balls {z-index:0}
+  .music-screen {overflow-y:auto;padding-bottom:28px}
+  .music-screen .bar {flex-shrink:0}
+  .music-screen .back {min-height:44px}
+  .music-art {position:relative;flex:none;width:200px;height:200px;border-radius:50%;margin:28px auto;
+    box-shadow:0 12px 24px #0004}
+  .music-label {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:62px;height:62px;
+    border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;
+    color:var(--cardInk);background:var(--card);font-size:12px;line-height:1.1;font-weight:800;text-align:center}
+  .music-screen .music-list {margin:0 24px;padding:0;background:transparent;border-radius:0;color:var(--ink)}
+  .music-screen .music-track {border:2px solid var(--title);border-radius:16px;margin-bottom:12px;
+    min-height:76px;padding:18px;font-size:19px;font-weight:500}
+  .music-screen .music-track + .music-track {border-top:2px solid var(--title)}
+  .music-screen .music-track span {font-size:22px}
+  .music-screen .music-track[aria-pressed="true"] {background:var(--card);color:var(--cardInk)}
+  .music-screen.playing .music-art .record-disc {animation:record-spin 3s linear infinite}
+  @media(prefers-reduced-motion:reduce){.music-screen.playing .music-art .record-disc{animation:none}}
+  @media(max-height:600px){.music-art{width:150px;height:150px;margin:18px auto}.ball-floor{height:120px}}
+
 </style>
 </head>
 <body>
 <div class="row" id="row"></div>
+<audio id="music" preload="none"></audio>
+<iframe class="game-frame" id="game-frame" title="Shoot a barev" hidden></iframe>
 
 <template id="tpl">
   <div class="phone">
     <div class="screen ring">
-      <div class="top">Incoming call · Yerevan</div>
+      <div class="top" data-copy="Incoming call · Yerevan">Incoming call · Yerevan</div><div class="language-switch" role="group" aria-label="Language" data-copy-label="Language">
+  <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+  <button type="button" data-lang="en" aria-pressed="false">EN</button>
+  <button type="button" data-lang="hy" aria-pressed="false">ՀԱՅ</button>
+</div>
       <div class="title">Barev,<br>Janik</div>
-      <div class="sub">is calling you</div>
+      <div class="sub" data-copy="is calling you">is calling you</div>
       <div class="handset"><div class="pulse"></div><div class="pulse"></div><div class="pulse"></div><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></div>
       <div class="actions">
-        <button class="btn decline"><i><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></i>Decline</button>
-        <button class="btn accept"><i><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></i>Answer</button>
+        <button class="btn decline"><i><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></i><span data-copy="Decline">Decline</span></button>
+        <button class="btn accept"><i><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></i><span data-copy="Answer">Answer</span></button>
       </div>
       <div class="toast"></div>
     </div>
 
     <div class="screen talk hidden">
       <div class="talk-content">
-        <div class="bar"><div class="top"><span class="timer">00:00</span> · On the line</div>
-          <button class="hang" aria-label="Hang up"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button></div>
-        <div class="title said"></div>
-        <p class="trans">"Hello, dear" in Armenian</p>
-        <div class="grid">
-          <button class="chip vcf"><b>Save us</b><span>to your contacts</span></button>
-          <a class="chip" target="_blank" href="https://maps.google.com/?q=8+Pap+Tagavor+St,+Yerevan"><b>Come by</b><span>8 Pap Tagavor St, courtyard · 12-20</span></a>
-          <a class="chip" target="_blank" href="https://instagram.com/barev.janik"><b>Instagram</b><span>@barev.janik</span></a>
-          <a class="chip" href="tel:+37477881576"><b>Call us</b><span>+374 77 88 15 76 · delivery in Yerevan</span></a>
+        <div class="bar"><div class="language-switch" role="group" aria-label="Language" data-copy-label="Language">
+  <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+  <button type="button" data-lang="en" aria-pressed="false">EN</button>
+  <button type="button" data-lang="hy" aria-pressed="false">ՀԱՅ</button>
+</div>
+          <div class="call-controls">
+            <button class="record-toggle" type="button" aria-label="Music" data-copy-label="Music" aria-controls="music-screen"><span class="record-disc" aria-hidden="true"></span><span class="record-symbol" aria-hidden="true">▶</span></button>
+            <button class="hang" aria-label="Hang up" data-copy-label="Hang up"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button>
+          </div>
         </div>
-        <button class="send"><div><b>Send a barev</b><span>a free postcard for someone dear</span></div><em>→</em></button>
-        <button class="send open-catalogue"><b>Catalogue</b><em aria-hidden="true">→</em></button>
+        <div class="top call-status"><span class="timer">00:00</span> <span data-copy="· On the line">· On the line</span></div>
+        <div class="title said"></div>
+        <div class="grid">
+          <button class="chip vcf"><b data-copy="Save us">Save us</b><span data-copy="to your contacts">to your contacts</span></button>
+          <a class="chip" target="_blank" href="https://maps.google.com/?q=8+Pap+Tagavor+St,+Yerevan"><b data-copy="Come by">Come by</b><span data-copy="8 Pap Tagavor St, courtyard · 12-20">8 Pap Tagavor St, courtyard · 12-20</span></a>
+          <a class="chip" target="_blank" href="https://instagram.com/barev.janik"><b>Instagram</b><span>@barev.janik</span></a>
+          <a class="chip" href="tel:+37477881576"><b data-copy="Call us">Call us</b><span data-copy="+374 77 88 15 76 · delivery in Yerevan">+374 77 88 15 76 · delivery in Yerevan</span></a>
+        </div>
+        <button class="send"><div><b data-copy="Send a barev">Send a barev</b><span data-copy="a free postcard for someone dear">a free postcard for someone dear</span></div><em>→</em></button>
+        <button class="send open-catalogue"><b data-copy="Catalogue">Catalogue</b><em aria-hidden="true">→</em></button>
       </div>
-      <canvas class="balls"></canvas>
+      <div class="ball-floor"><canvas class="balls"></canvas></div>
       <div class="toast"></div>
     </div>
 
     <div class="screen pick hidden">
-      <div class="bar"><button class="back">← Back</button></div>
-      <h2>Pick a barev</h2>
+      <div class="bar"><button class="back" data-copy="← Back">← Back</button></div>
+      <h2 data-copy="Pick a barev">Pick a barev</h2>
       <div class="cards">
 </div>
       <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="foot">
-        <textarea class="msg" rows="2" maxlength="140" placeholder="Add a message (optional)" aria-label="Add a message (optional)"></textarea>
-        <button class="go">Send →</button>
-        <div class="paper">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
+        <textarea class="msg" rows="2" maxlength="140" placeholder="Add a message (optional)" data-copy-placeholder="Add a message (optional)" aria-label="Add a message (optional)" data-copy-label="Add a message (optional)"></textarea>
+        <button class="go" data-copy="Send →">Send →</button>
+        <div class="paper" data-copy="Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St">Free to send. On paper: 1 000 AMD at 8 Pap Tagavor St</div>
       </div>
       <div class="toast" role="status"></div>
     </div>
 
+    <div class="screen pick music-screen hidden" id="music-screen">
+      <div class="bar"><button class="back music-back" data-copy="← Back">← Back</button><div class="language-switch" role="group" aria-label="Language" data-copy-label="Language">
+  <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+  <button type="button" data-lang="en" aria-pressed="false">EN</button>
+  <button type="button" data-lang="hy" aria-pressed="false">ՀԱՅ</button>
+</div></div>
+      <h2 data-copy="Listen">Listen</h2>
+      <div class="music-art" aria-hidden="true">
+        <div class="record-disc"></div>
+        <div class="music-label">BAREV,<br>JANIK</div>
+      </div>
+        <div class="music-list" id="music-list" aria-label="Music tracks" data-copy-label="Music tracks">
+          <button class="music-track" type="button" data-track="/music/barev-one.mp3" aria-pressed="false">Barev, Janike ONE <span aria-hidden="true">▶</span></button>
+          <button class="music-track" type="button" data-track="/music/barev-two.mp3" aria-pressed="false">Barev, Janike TWO <span aria-hidden="true">▶</span></button>
+          <p class="music-error" role="status" hidden data-copy="Could not play this track. Try again.">Could not play this track. Try again.</p>
+        </div>
+    </div>
+
     <div class="screen pick catalogue hidden">
-      <div class="bar"><button class="back">← Back</button></div>
-      <h2>Catalogue</h2>
-      <p>Our catalogue is coming soon. In the meantime, play Shoot a barev and win a printed postcard!</p>
-      <a class="go" href="/game">Play →</a>
+      <div class="bar"><button class="back" data-copy="← Back">← Back</button></div>
+      <h2 data-copy="Catalogue">Catalogue</h2>
+      <p data-copy="Our catalogue is coming soon. In the meantime, play Shoot a barev and win a printed postcard!">Our catalogue is coming soon. In the meantime, play Shoot a barev and win a printed postcard!</p>
+      <a class="go" href="/game" data-copy="Play →">Play →</a>
     </div>
   </div>
 </template>
 
+<script src="/ui-language.js"></script>
 <script>
 const THEMES = [["t-blue","Blue + lime","plain_blue"],["t-lilac","Lilac + lime","plain_lilac"],["t-green","Green + pink","plain_green"]];
 const PHONE = "+37477881576";
@@ -327,7 +407,7 @@ class Pit {
     for (let i = 0; i < n; i++) setTimeout(() => {
       const big = i % 3 === 0, r = big ? 34 : 24;
       this.balls.push({ x: 40 + Math.random() * (this.W - 80), y: -r - 10, vx: (Math.random() - .5) * 400, vy: Math.random() * 200, a: Math.random() * 6, r,
-                        sp: makeSprite(r, this.base, this.ink, big, this.dpr) });
+                        sp: makeSprite(r, this.base, this.ink, true, this.dpr) });
     }, i * 140);
     if (!this.run) { this.run = true; this.t = performance.now(); requestAnimationFrame(t => this.loop(t)); }
   }
@@ -384,8 +464,9 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   const $ = s => ph.querySelector(s);
   $(".cards").innerHTML = info.cards.map(c => '<img data-k="' + c + '" src="/cards/' + c + '.jpg?v=' + info.v + '" alt="BAREV, JANIK postcard">').join("");
   const ring = $(".ring"), talk = $(".talk"), pick = $(".pick"), hs = $(".handset"), said = $(".said"), timer = $(".timer"),
-        chips = ph.querySelectorAll(".chip, .send"), pit = new Pit(talk, $(".balls"), ph);
-  const toast = (scr, msg) => { const t = scr.querySelector(".toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); };
+        chips = ph.querySelectorAll(".chip, .send"), pit = new Pit($(".ball-floor"), $(".balls"), ph);
+  const language = createBarevLanguage(ph);
+  const toast = (scr, msg) => { const t = scr.querySelector(".toast"); t.textContent = language.text(msg); t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); };
   let tick, declines = 0;
   const DECL = ["You can't decline a barev, janik.", "Still no? We'll keep calling.", "OK, the balls will answer for you."];
   $(".decline").onclick = () => {
@@ -395,18 +476,77 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
       setTimeout(() => $(".accept").click(), 1200);
     }
   };
-  $(".accept").onclick = () => {
-    unlockAudio();
-    chime(); ring.classList.add("hidden"); talk.classList.remove("hidden");
+  const enterMenu = (answerCall) => {
+    if (answerCall) { unlockAudio(); chime(); }
+    ring.classList.add("hidden"); talk.classList.remove("hidden");
     let sec = 0; timer.textContent = "00:00"; clearInterval(tick);
     tick = setInterval(() => { sec++; timer.textContent = String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); }, 1000);
     const text = "Barev,\nJanik!"; said.textContent = ""; let i = 0;
+    if (!answerCall) {
+      said.innerHTML = text.replace("\n", "<br>");
+      chips.forEach(c => c.classList.add("in"));
+      pit.drop(9);
+      return;
+    }
     const type = setInterval(() => {
       said.innerHTML = text.slice(0, ++i).replace("\n", "<br>");
       if (i >= text.length) { clearInterval(type); chips.forEach((c, k) => setTimeout(() => c.classList.add("in"), 120 * k)); setTimeout(() => pit.drop(9), 700); }
     }, 85);
   };
+  $(".accept").onclick = () => enterMenu(true);
+  const player = document.getElementById("music"), record = $(".record-toggle"),
+        trackButtons = [...ph.querySelectorAll(".music-track")],
+        musicError = $(".music-error");
+  let currentTrack;
+  const updatePlayer = () => {
+    const playing = !player.paused && !player.ended;
+    record.classList.toggle("playing", playing);
+    musicScreen.classList.toggle("playing", playing);
+    $(".record-symbol").textContent = playing ? "■" : "▶";
+    trackButtons.forEach(button => {
+      const active = playing && button === currentTrack;
+      button.setAttribute("aria-pressed", String(active));
+      button.querySelector("span").textContent = active ? "■" : "▶";
+    });
+  };
+  const stopTrack = () => {
+    player.pause();
+    if (player.readyState >= 1) player.currentTime = 0;
+    updatePlayer();
+  };
+  const musicScreen = $(".music-screen");
+  const syncMusic = () => musicScreen.classList.toggle("hidden", location.hash !== "#music");
+  record.onclick = () => {
+    history.pushState({barevMusic: true}, "", "#music");
+    syncMusic();
+    $(".music-back").focus();
+  };
+  $(".music-back").onclick = () => {
+    if (history.state?.barevMusic) history.back();
+    else {
+      history.replaceState(null, "", location.pathname + location.search);
+      syncMusic();
+    }
+    record.focus();
+  };
+  window.addEventListener("hashchange", syncMusic);
+
+  trackButtons.forEach(button => button.onclick = () => {
+    musicError.hidden = true;
+    if (button === currentTrack && !player.paused && !player.ended) return stopTrack();
+    if (button !== currentTrack) {
+      currentTrack = button;
+      player.src = button.dataset.track;
+    }
+    player.play().catch(error => {
+      if (error.name !== "AbortError") musicError.hidden = false;
+    });
+  });
+  ["play", "pause", "ended", "error"].forEach(type => player.addEventListener(type, updatePlayer));
   $(".hang").onclick = () => {
+    stopTrack();
+    musicScreen.classList.add("hidden");
+
     clearInterval(tick); pit.clear(); declines = 0; chips.forEach(c => c.classList.remove("in"));
     talk.classList.add("hidden"); ring.classList.remove("hidden");
   };
@@ -422,16 +562,87 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   const catalogue = $(".catalogue");
   $(".open-catalogue").onclick = () => catalogue.classList.remove("hidden");
   $(".catalogue .back").onclick = () => catalogue.classList.add("hidden");
+  const gameFrame = document.getElementById("game-frame"), playGame = $(".catalogue a.go");
+  const syncGame = () => {
+    const open = location.hash === "#game";
+    const wasOpen = !gameFrame.hidden;
+    if (open) {
+      if (talk.classList.contains("hidden")) enterMenu(false);
+      catalogue.classList.add("hidden");
+      if (!gameFrame.hasAttribute("src")) gameFrame.src = "/game/board";
+    }
+    ph.inert = open;
+    gameFrame.hidden = !open;
+    if (open && !wasOpen) gameFrame.focus();
+    if (!open && wasOpen) $(".open-catalogue").focus({preventScroll: true});
+  };
+  playGame.onclick = event => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    history.pushState({barevGame: true}, "", "#game");
+    syncGame();
+  };
+  window.addEventListener("hashchange", syncGame);
+  window.addEventListener("message", event => {
+    if (event.origin !== location.origin || event.source !== gameFrame.contentWindow ||
+        event.data !== "barev:back-to-menu" || gameFrame.hidden) return;
+    if (history.state?.barevGame) history.back();
+    else {
+      history.replaceState(null, "", location.pathname + location.search);
+      syncGame();
+    }
+  });
+  if (new URLSearchParams(location.search).get("view") === "menu") enterMenu(false);
+  syncGame();
+  if (location.hash === "#music" && talk.classList.contains("hidden")) enterMenu(false);
+  syncMusic();
   const msg = $(".msg"), go = $(".go");
+  const eventQueueKey = "barev.postcard-events";
+  let pendingEvents = [], sendingEvents = false;
+  try {
+    const savedEvents = JSON.parse(localStorage.getItem(eventQueueKey) || "[]");
+    if (Array.isArray(savedEvents)) pendingEvents = savedEvents.filter(event =>
+      event && /^[a-f0-9]{32}$/.test(event.id) && typeof event.card === "string" &&
+      ["web_share", "web_download"].includes(event.method));
+  } catch {}
+  const savePendingEvents = () => {
+    try { localStorage.setItem(eventQueueKey, JSON.stringify(pendingEvents)); } catch {}
+  };
+  const sendPendingEvents = async () => {
+    if (sendingEvents) return;
+    sendingEvents = true;
+    try {
+      while (pendingEvents.length) {
+        const body = JSON.stringify(pendingEvents[0]);
+        try {
+          const response = await fetch("/api/postcard-events", {
+            method: "POST", headers: {"Content-Type": "application/json"}, body, keepalive: true
+          });
+          if (!response.ok && response.status !== 400) break;
+          pendingEvents.shift();
+          savePendingEvents();
+        } catch {
+          navigator.sendBeacon?.("/api/postcard-events", new Blob([body], {type: "application/json"}));
+          break;
+        }
+      }
+    } finally {
+      sendingEvents = false;
+    }
+  };
   const recordPostcardAction = (card, method) => {
     try {
       const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
-      fetch("/api/postcard-events", {
-        method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({id, card, method}), keepalive: true
-      }).catch(() => {});
+      pendingEvents.push({id, card, method});
+      savePendingEvents();
+      sendPendingEvents();
     } catch {}
   };
+  window.addEventListener("online", sendPendingEvents);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) sendPendingEvents();
+  });
+  sendPendingEvents();
   go.onclick = async () => {
     const im = imgs[cur];
     if (!im) return toast(pick, "No postcards available yet.");

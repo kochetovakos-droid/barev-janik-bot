@@ -59,6 +59,8 @@ class Game:
         ).fetchone()
 
     async def page(self, request):
+        if request.path == "/game":
+            raise web.HTTPFound("/?view=menu#game")
         return web.FileResponse(GAME_TEMPLATE)
 
     async def start(self, request):
