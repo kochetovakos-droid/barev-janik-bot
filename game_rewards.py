@@ -52,6 +52,10 @@ class Rewards:
                     phone_key TEXT PRIMARY KEY,
                     code TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS postcard_telegram_rewards (
+                    telegram_id INTEGER PRIMARY KEY,
+                    code TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS postcard_reward_notifications (
                     code TEXT NOT NULL,
                     admin_id INTEGER NOT NULL,
@@ -64,6 +68,10 @@ class Rewards:
             for name in ("telegram_username", "phone_number"):
                 if name not in columns:
                     db.execute(f"ALTER TABLE postcard_rewards ADD COLUMN {name} TEXT")
+            if "qr_sent_at" not in columns:
+                db.execute("ALTER TABLE postcard_rewards ADD COLUMN qr_sent_at TEXT")
+                # Existing prizes predate delivery tracking and already have a QR.
+                db.execute("UPDATE postcard_rewards SET qr_sent_at = issued_at")
             old_rewards = db.execute(
                 "SELECT code, phone_number FROM postcard_rewards WHERE phone_number IS NOT NULL "
                 "ORDER BY (redeemed_at IS NULL), issued_at, telegram_id"
@@ -76,6 +84,15 @@ class Rewards:
                 db.execute(
                     "INSERT INTO postcard_phone_rewards (phone_key, code) VALUES (?, ?) "
                     "ON CONFLICT (phone_key) DO NOTHING", (normalized, reward["code"]),
+                )
+
+            # Preserve the account limit even when several Telegram accounts used one phone.
+            for account in db.execute("SELECT telegram_id, code FROM postcard_rewards").fetchall():
+                canonical = self._reward_by_code(db, account["code"])
+                db.execute(
+                    "INSERT INTO postcard_telegram_rewards (telegram_id, code) VALUES (?, ?) "
+                    "ON CONFLICT (telegram_id) DO NOTHING",
+                    (account["telegram_id"], canonical["code"]),
                 )
 
     def connect(self):
@@ -126,26 +143,33 @@ class Rewards:
                 "UPDATE game_wins SET claimed_by = ? WHERE ticket = ?",
                 (telegram_id, ticket),
             )
-            existing = db.execute(
+            # Check Telegram ID first; changing its phone cannot issue a second prize.
+            account = db.execute(
+                "SELECT code FROM postcard_telegram_rewards WHERE telegram_id = ?", (telegram_id,),
+            ).fetchone()
+            phone_reward = db.execute(
                 "SELECT r.* FROM postcard_phone_rewards p JOIN postcard_rewards r ON r.code = p.code "
                 "WHERE p.phone_key = ?", (normalized,),
-            ).fetchone()
-            if existing:
-                return dict(existing), False
-            account = db.execute(
-                "SELECT code FROM postcard_rewards WHERE telegram_id = ?", (telegram_id,),
             ).fetchone()
             if account:
                 existing = self._reward_by_code(db, account["code"])
                 db.execute(
-                    "UPDATE postcard_rewards SET telegram_username = ?, phone_number = COALESCE(phone_number, ?) "
-                    "WHERE telegram_id = ?", (username, phone_number, telegram_id),
+                    "UPDATE postcard_rewards SET telegram_username = ? WHERE telegram_id = ?",
+                    (username, telegram_id),
                 )
-                db.execute(
-                    "INSERT INTO postcard_phone_rewards (phone_key, code) VALUES (?, ?)",
-                    (normalized, existing["code"]),
-                )
+                if phone_reward is None:
+                    db.execute(
+                        "INSERT INTO postcard_phone_rewards (phone_key, code) VALUES (?, ?)",
+                        (normalized, existing["code"]),
+                    )
                 return dict(self._reward_by_code(db, existing["code"])), False
+            if phone_reward:
+                existing = self._reward_by_code(db, phone_reward["code"])
+                db.execute(
+                    "INSERT INTO postcard_telegram_rewards (telegram_id, code) VALUES (?, ?)",
+                    (telegram_id, existing["code"]),
+                )
+                return dict(existing), False
             db.execute(
                 "INSERT INTO postcard_rewards (telegram_id, code, telegram_username, phone_number) VALUES (?, ?, ?, ?)",
                 (telegram_id, secrets.token_hex(12).upper(), username, phone_number),
@@ -157,7 +181,26 @@ class Rewards:
                 "INSERT INTO postcard_phone_rewards (phone_key, code) VALUES (?, ?)",
                 (normalized, reward["code"]),
             )
+            db.execute(
+                "INSERT INTO postcard_telegram_rewards (telegram_id, code) VALUES (?, ?)",
+                (telegram_id, reward["code"]),
+            )
             return dict(reward), True
+
+    def mark_qr_sent(self, code):
+        with closing(self.connect()) as db, db:
+            db.execute(
+                "UPDATE postcard_rewards SET qr_sent_at = COALESCE(qr_sent_at, CURRENT_TIMESTAMP) WHERE code = ?",
+                (code,),
+            )
+
+    def reward_for_telegram(self, telegram_id):
+        with closing(self.connect()) as db:
+            account = db.execute(
+                "SELECT code FROM postcard_telegram_rewards WHERE telegram_id = ?", (telegram_id,),
+            ).fetchone()
+            reward = self._reward_by_code(db, account["code"]) if account else None
+            return dict(reward) if reward else None
 
     @staticmethod
     def _reward_by_code(db, code):

@@ -30,7 +30,7 @@ COPY = {
         "en": "🎁 Your paper postcard is waiting for you!\n\n📍 BAREV, JANIK\n8 Pap Tagavor St., Yerevan, in the courtyard\n\n🕛 12:00–20:00\n\n🎟 Show this QR code to the staff to collect your postcard.\nOne phone number — one postcard.",
         "hy": "🎁 Քո թղթե բացիկը սպասում է քեզ։\n\n📍 BAREV, JANIK\nՊապ Թագավորի փ. 8, Երևան, բակում\n\n🕛 12:00–20:00\n\n🎟 Բացիկը ստանալու համար այս QR կոդը ցույց տուր աշխատակցին։\nՄեկ հեռախոսահամարին՝ մեկ բացիկ։",
     },
-    "existing": {"ru": "Это твой ранее оформленный QR-код.", "en": "This is your existing QR code.", "hy": "Սա քո նախկինում ձևակերպած QR կոդն է։"},
+    "existing": {"ru": "🎟 Приз уже оформлен. Повторный QR-код не выдаётся.\n\nИграй дальше сколько хочешь и отправляй электронные открытки друзьям!", "en": "🎟 This prize has already been claimed. No second QR code is issued.\n\nKeep playing and send digital postcards to your friends!", "hy": "🎟 Մրցանակն արդեն ձևակերպված է։ Կրկնակի QR կոդ չի տրամադրվում։\n\nՇարունակիր խաղալ և էլեկտրոնային բացիկներ ուղարկել ընկերներիդ։"},
 }
 
 
@@ -126,6 +126,12 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
 
     async def request_contact(message, ticket, user):
         telegram_id = user.id
+        previous = rewards.reward_for_telegram(telegram_id)
+        if previous and (previous["qr_sent_at"] or previous["redeemed_at"] or previous["telegram_id"] != telegram_id):
+            return await message.answer(
+                player_text(user, "collected" if previous["redeemed_at"] else "existing"),
+                reply_markup=ReplyKeyboardRemove(),
+            )
         if not rewards.begin_claim(ticket, telegram_id):
             return await message.answer(player_text(user, "unavailable"))
         await message.answer(
@@ -169,16 +175,19 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
             )
         if reward["redeemed_at"]:
             return await message.answer(player_text(user, "collected"), reply_markup=ReplyKeyboardRemove())
+        if not created and (reward["qr_sent_at"] or reward["telegram_id"] != user.id):
+            return await message.answer(player_text(user, "existing"), reply_markup=ReplyKeyboardRemove())
         code = reward["code"]
         qr = qrcode.make(f"https://t.me/{bot_username()}?start=gift_{code}")
         image = io.BytesIO()
         qr.save(image, format="PNG")
         await message.answer_photo(
             BufferedInputFile(image.getvalue(), filename="postcard-prize.png"),
-            caption=player_text(user, "caption") + ("\n\n" + player_text(user, "existing") if not created else ""),
+            caption=player_text(user, "caption"),
             reply_markup=ReplyKeyboardRemove(),
         )
 
+        rewards.mark_qr_sent(code)
         await notify_pending()
 
     async def inspect_prize(message, code):
