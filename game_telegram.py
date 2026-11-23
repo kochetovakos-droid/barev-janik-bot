@@ -20,6 +20,9 @@ COPY = {
         "en": "🎁 Claim your postcard\n\nTap below to share your phone number.\nBAREV, JANIK will store your phone number, Telegram ID and username, if available, to fulfil your prize claim.\n\nOne phone number — one QR code and one postcard.",
         "hy": "🎁 Ստացիր քո բացիկը\n\nՍեղմիր ներքևի կոճակը և հաստատիր հեռախոսահամարի փոխանցումը։\nBAREV, JANIK-ը կպահպանի քո հեռախոսահամարը, Telegram ID-ն և օգտանունը՝ մրցանակը տրամադրելու համար։\n\nՄեկ հեռախոսահամար — մեկ QR կոդ և մեկ բացիկ։",
     },
+    "marketing_yes": {"ru": "📣 Ты выбрал(а) новости, акции и подарки в Telegram. Отказаться можно командой /stop. Это не влияет на получение открытки.", "en": "📣 You opted in to news, promotions and gift offers in Telegram. Unsubscribe with /stop. This does not affect your postcard.", "hy": "📣 Դու ընտրել ես նորություններ, ակցիաներ և նվերների առաջարկներ Telegram-ում։ Հրաժարվելու համար ուղարկիր /stop։ Սա չի ազդում բացիկը ստանալու վրա։"},
+    "marketing_no": {"ru": "Рассылка не выбрана. Открытку всё равно можно получить.", "en": "You have not opted in to marketing. You can still collect your postcard.", "hy": "Դու չես ընտրել գովազդային հաղորդագրությունները։ Դու միևնույն է կարող ես ստանալ բացիկը։"},
+    "marketing_stopped": {"ru": "Рассылка отключена. Право на приз и твой QR-код сохраняются.", "en": "Marketing messages are disabled. Your prize and QR code remain valid.", "hy": "Գովազդային հաղորդագրություններն անջատված են։ Քո մրցանակը և QR կոդը մնում են ուժի մեջ։"},
     "contact": {"ru": "📱 Поделиться номером и получить QR", "en": "📱 Share contact and get QR code", "hy": "📱 Ուղարկել համարը և ստանալ QR կոդը"},
     "unavailable": {"ru": "Ссылка на приз недоступна. Открой её из игры ещё раз.", "en": "This prize claim is unavailable. Open the claim link from the game again.", "hy": "Մրցանակի հղումն անհասանելի է։ Նորից բացիր այն խաղից։"},
     "own_contact": {"ru": "Нажми кнопку ниже, чтобы передать свой номер.", "en": "Use the button below to share your own contact.", "hy": "Սեղմիր ներքևի կոճակը՝ քո համարը փոխանցելու համար։"},
@@ -64,6 +67,7 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
                             f"📱 {reward['phone_number'] or 'Номер не указан'}\n"
                             f"🆔 Telegram ID {reward['telegram_id']}\n"
                             f"🎟 Код {code}\n\n"
+                            f"📣 Рассылка: {'согласие получено' if rewards.marketing_enabled(reward['telegram_id']) else 'не подписан(а)'}\n\n"
                             "Проверь код при выдаче открытки.",
                             reply_markup=keyboard("Открыть приз", f"inspect:{code}"),
                         )
@@ -105,7 +109,8 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
             status = "Открытка выдана" if reward["redeemed_at"] else "Ожидает получения"
             await message.answer(
                 f"👤 {username}\n📱 {reward['phone_number'] or 'Номер не указан'}\n"
-                f"🆔 Telegram ID {reward['telegram_id']}\n🎟 {reward['code']}\n{status}",
+                f"🆔 Telegram ID {reward['telegram_id']}\n🎟 {reward['code']}\n{status}\n"
+                f"📣 Рассылка: {'согласие получено' if rewards.marketing_enabled(reward['telegram_id']) else 'не подписан(а)'}",
                 reply_markup=keyboard("Проверить приз", f"inspect:{reward['code']}"),
             )
         if len(entries) > offset + 10:
@@ -124,7 +129,7 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
         offset = int(callback.data.split(":")[2]) if callback.data.count(":") == 2 else 0
         await show_prizes(callback.message, offset)
 
-    async def request_contact(message, ticket, user):
+    async def request_contact(message, ticket, user, marketing_opt_in=False):
         telegram_id = user.id
         previous = rewards.reward_for_telegram(telegram_id)
         if previous and (previous["qr_sent_at"] or previous["redeemed_at"] or previous["telegram_id"] != telegram_id):
@@ -132,10 +137,10 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
                 player_text(user, "collected" if previous["redeemed_at"] else "existing"),
                 reply_markup=ReplyKeyboardRemove(),
             )
-        if not rewards.begin_claim(ticket, telegram_id):
+        if not rewards.begin_claim(ticket, telegram_id, marketing_opt_in):
             return await message.answer(player_text(user, "unavailable"))
         await message.answer(
-            player_text(user, "consent"),
+            player_text(user, "consent") + "\n\n" + player_text(user, "marketing_yes" if marketing_opt_in else "marketing_no"),
             reply_markup=ReplyKeyboardMarkup(
                 keyboard=[[KeyboardButton(text=player_text(user, "contact"), request_contact=True)]],
                 resize_keyboard=True,
@@ -143,12 +148,13 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
             ),
         )
 
-    @router.message(CommandStart(deep_link=True), F.text.regexp(r"^/start(?:@\w+)? win_[\w-]{32}$"))
+    @router.message(CommandStart(deep_link=True), F.text.regexp(r"^/start(?:@\w+)? win_[\w-]{32}(?:_m[01])?$"))
     async def offer(message):
         if message.chat.type != "private":
             return
-        ticket = message.text.split()[1][4:]
-        await request_contact(message, ticket, message.from_user)
+        payload = message.text.split()[1][4:]
+        ticket = payload[:32]
+        await request_contact(message, ticket, message.from_user, payload[32:] == "_m1")
 
     @router.callback_query(F.data.regexp(r"^claim:[\w-]{32}$"))
     async def request_from_old_button(callback):
@@ -157,6 +163,11 @@ def register_reward_handlers(router, rewards, bot, admin_chats, is_admin, bot_us
         ticket = callback.data.split(":", 1)[1]
         await callback.answer()
         await request_contact(callback.message, ticket, callback.from_user)
+
+    @router.message(Command("stop"), F.chat.type == "private")
+    async def stop_marketing(message):
+        rewards.stop_marketing(message.from_user.id)
+        await message.answer(player_text(message.from_user, "marketing_stopped"))
 
     @router.message(F.contact, F.chat.type == "private")
     async def claim(message):

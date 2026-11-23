@@ -9,6 +9,8 @@ from contextlib import closing
 from pathlib import Path
 
 CONTACT_REQUEST_AGE = 15 * 60
+MARKETING_VERSION = "barev-telegram-marketing-v1"
+MARKETING_TEXT = "Я согласен(-на) получать в Telegram новости, акции и предложения о подарках от BAREV, JANIK. Отказаться можно командой /stop."
 
 
 def phone_key(phone_number: str) -> str:
@@ -56,6 +58,20 @@ class Rewards:
                     telegram_id INTEGER PRIMARY KEY,
                     code TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS marketing_preferences (
+                    telegram_id INTEGER PRIMARY KEY,
+                    enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE IF NOT EXISTS marketing_consent_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id INTEGER NOT NULL,
+                    enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+                    source TEXT NOT NULL,
+                    version TEXT NOT NULL,
+                    consent_text TEXT NOT NULL,
+                    recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 CREATE TABLE IF NOT EXISTS postcard_reward_notifications (
                     code TEXT NOT NULL,
                     admin_id INTEGER NOT NULL,
@@ -64,6 +80,9 @@ class Rewards:
                 );
             """)
             db.execute("BEGIN IMMEDIATE")
+            pending_columns = {row["name"] for row in db.execute("PRAGMA table_info(pending_game_claims)")}
+            if "marketing_opt_in" not in pending_columns:
+                db.execute("ALTER TABLE pending_game_claims ADD COLUMN marketing_opt_in INTEGER NOT NULL DEFAULT 0")
             columns = {row["name"] for row in db.execute("PRAGMA table_info(postcard_rewards)")}
             for name in ("telegram_username", "phone_number"):
                 if name not in columns:
@@ -106,7 +125,7 @@ class Rewards:
             db.execute("INSERT INTO game_wins (ticket) VALUES (?)", (ticket,))
         return ticket
 
-    def begin_claim(self, ticket: str, telegram_id: int) -> bool:
+    def begin_claim(self, ticket: str, telegram_id: int, marketing_opt_in: bool = False) -> bool:
         now = time.time()
         with closing(self.connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
@@ -115,9 +134,10 @@ class Rewards:
                 return False
             db.execute("DELETE FROM pending_game_claims WHERE expires <= ?", (now,))
             db.execute(
-                "INSERT INTO pending_game_claims (telegram_id, ticket, expires) VALUES (?, ?, ?) "
-                "ON CONFLICT (telegram_id) DO UPDATE SET ticket = excluded.ticket, expires = excluded.expires",
-                (telegram_id, ticket, now + CONTACT_REQUEST_AGE),
+                "INSERT INTO pending_game_claims (telegram_id, ticket, expires, marketing_opt_in) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT (telegram_id) DO UPDATE SET ticket = excluded.ticket, expires = excluded.expires, "
+                "marketing_opt_in = excluded.marketing_opt_in",
+                (telegram_id, ticket, now + CONTACT_REQUEST_AGE, int(marketing_opt_in is True)),
             )
             return True
 
@@ -127,7 +147,7 @@ class Rewards:
         with closing(self.connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             pending = db.execute(
-                "SELECT ticket FROM pending_game_claims WHERE telegram_id = ? AND expires > ?",
+                "SELECT ticket, marketing_opt_in FROM pending_game_claims WHERE telegram_id = ? AND expires > ?",
                 (telegram_id, time.time()),
             ).fetchone()
             if pending is None:
@@ -143,6 +163,7 @@ class Rewards:
                 "UPDATE game_wins SET claimed_by = ? WHERE ticket = ?",
                 (telegram_id, ticket),
             )
+            self._set_marketing(db, telegram_id, bool(pending["marketing_opt_in"]), "prize_contact")
             # Check Telegram ID first; changing its phone cannot issue a second prize.
             account = db.execute(
                 "SELECT code FROM postcard_telegram_rewards WHERE telegram_id = ?", (telegram_id,),
@@ -186,6 +207,29 @@ class Rewards:
                 (telegram_id, reward["code"]),
             )
             return dict(reward), True
+
+    @staticmethod
+    def _set_marketing(db, telegram_id, enabled, source):
+        db.execute(
+            "INSERT INTO marketing_preferences (telegram_id, enabled) VALUES (?, ?) "
+            "ON CONFLICT (telegram_id) DO UPDATE SET enabled = excluded.enabled, updated_at = CURRENT_TIMESTAMP",
+            (telegram_id, int(enabled)),
+        )
+        db.execute(
+            "INSERT INTO marketing_consent_events (telegram_id, enabled, source, version, consent_text) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (telegram_id, int(enabled), source, MARKETING_VERSION, MARKETING_TEXT),
+        )
+
+    def stop_marketing(self, telegram_id):
+        with closing(self.connect()) as db, db:
+            self._set_marketing(db, telegram_id, False, "telegram_stop")
+            db.execute("UPDATE pending_game_claims SET marketing_opt_in = 0 WHERE telegram_id = ?", (telegram_id,))
+
+    def marketing_enabled(self, telegram_id):
+        with closing(self.connect()) as db:
+            row = db.execute("SELECT enabled FROM marketing_preferences WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            return bool(row and row["enabled"])
 
     def mark_qr_sent(self, code):
         with closing(self.connect()) as db, db:

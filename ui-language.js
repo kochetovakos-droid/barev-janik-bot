@@ -295,6 +295,14 @@ const barevCopy = {
     "Получить QR-код в Telegram →",
     "Ստանալ QR կոդը Telegram-ում →"
   ],
+  "I agree to receive news, promotions and gift offers from BAREV, JANIK in Telegram. I can unsubscribe with /stop.": [
+    "Я согласен(-на) получать в Telegram новости, акции и предложения о подарках от BAREV, JANIK. Отказаться можно командой /stop.",
+    "Համաձայն եմ Telegram-ում ստանալ նորություններ, ակցիաներ և նվերների առաջարկներ BAREV, JANIK-ից։ Հրաժարվելու համար կարող եմ ուղարկել /stop։"
+  ],
+  "Optional. You can collect your postcard without subscribing.": [
+    "Необязательно. Открытку можно получить без подписки на рассылку.",
+    "Պարտադիր չէ։ Բացիկը կարելի է ստանալ առանց գովազդային հաղորդագրություններին բաժանորդագրվելու։"
+  ],
   "Continue in Telegram →": [
     "Продолжить в Telegram →",
     "Շարունակել Telegram-ում →"
