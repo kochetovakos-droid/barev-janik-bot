@@ -285,7 +285,7 @@
   </div>
 </template>
 
-<script src="/ui-language.js"></script>
+<script src="/ui-language.js?v=2"></script>
 <script>
 const THEMES = [["t-blue","Blue + lime","plain_blue"],["t-lilac","Lilac + lime","plain_lilac"],["t-green","Green + pink","plain_green"]];
 const PHONE = "+37477881576";
@@ -421,7 +421,7 @@ class Pit {
     for (let i = 0; i < n; i++) setTimeout(() => {
       const big = i % 3 === 0, r = big ? 34 : 24;
       this.balls.push({ x: 40 + Math.random() * (this.W - 80), y: -r - 10, vx: (Math.random() - .5) * 400, vy: Math.random() * 200, a: Math.random() * 6, r,
-                        sp: makeSprite(r, this.base, this.ink, true, this.dpr) });
+                        sp: makeSprite(r, this.base, this.ink, true, this.dpr), w: window.barevWinter ? barevWinter.ball(r, this.base) : null });
     }, i * 140);
     if (!this.run) { this.run = true; this.t = performance.now(); requestAnimationFrame(t => this.loop(t)); }
   }
@@ -432,7 +432,7 @@ class Pit {
     const dt = Math.min(1 / 30, (t - this.t) / 1000); this.t = t;
     for (let k = 0; k < 2; k++) this.step(dt / 2);
     const x = this.x; x.clearRect(0, 0, this.W, this.H);
-    for (const b of this.balls) { x.save(); x.translate(b.x, b.y); x.rotate(b.a); x.drawImage(b.sp, -b.r, -b.r, b.r * 2, b.r * 2); x.restore(); }
+    for (const b of this.balls) { x.save(); x.translate(b.x, b.y); x.rotate(b.a); if (b.w) barevWinter.draw(x, b); else x.drawImage(b.sp, -b.r, -b.r, b.r * 2, b.r * 2); x.restore(); if (b.w) barevWinter.cap(x, b, b === this.grab); }
     requestAnimationFrame(t => this.loop(t));
   }
   step(dt) {
@@ -443,7 +443,7 @@ class Pit {
       b.x += b.vx * dt; b.y += b.vy * dt;
       if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx) * e; }
       if (b.x > W - b.r) { b.x = W - b.r; b.vx = -Math.abs(b.vx) * e; }
-      if (b.y > H - b.r) { b.y = H - b.r; if (b.vy > 260) pok(b.vy); b.vy = -b.vy * e; if (Math.abs(b.vy) < 40) b.vy = 0; b.vx *= .985; }
+      if (b.y > H - b.r) { b.y = H - b.r; if (b.vy > 260) (b.w ? barevWinter.hit(b, b.vy) : pok(b.vy)); b.vy = -b.vy * e; if (Math.abs(b.vy) < 40) b.vy = 0; b.vx *= .985; }
       b.a += b.vx * dt / b.r;
     }
     for (let i = 0; i < B.length; i++) for (let j = i + 1; j < B.length; j++) {
@@ -452,7 +452,7 @@ class Pit {
       const nx = dx / d, ny = dy / d, o = (m - d) / 2;
       if (p !== this.grab) { p.x -= nx * o; p.y -= ny * o; } if (q !== this.grab) { q.x += nx * o; q.y += ny * o; }
       const rv = (q.vx - p.vx) * nx + (q.vy - p.vy) * ny;
-      if (rv < 0) { const j2 = -(1 + e) * rv / 2; p.vx -= j2 * nx; p.vy -= j2 * ny; q.vx += j2 * nx; q.vy += j2 * ny; }
+      if (rv < 0) { if (rv < -300 && p.w) barevWinter.hit(p, -rv); const j2 = -(1 + e) * rv / 2; p.vx -= j2 * nx; p.vy -= j2 * ny; q.vx += j2 * nx; q.vy += j2 * ny; }
     }
   }
   pt(e) { const r = this.s.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
@@ -701,6 +701,149 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
     }
   };
 }));
+</script>
+<script>
+/* BAREV, JANIK winter: Dec 1 - Jan 13 ornaments, Jan 14 - Feb 28 snowballs; snow + caps on the big title. ?winter=xmas|snow|off to test. */
+(function () {
+const now = new Date(Date.now() + 4 * 3600e3), m = now.getUTCMonth(), d = now.getUTCDate();
+let mode = (m === 11 || (m === 0 && d < 14)) ? "xmas" : ((m === 0 && d >= 14) || m === 1) ? "snow" : "off";
+const q = new URLSearchParams(location.search).get("winter"); if (q === "xmas" || q === "snow" || q === "off") mode = q;
+if (mode === "off") return;
+const OR = { cx: 41.95, cy: 68.97, r: 39.28, w: 84, h: 110 }, im = {};
+const lime = new Image(); lime.onload = () => {
+im.lime = lime;
+const tint = (hex, ts, tv) => { const c = document.createElement("canvas"); c.width = OR.w; c.height = OR.h; const x = c.getContext("2d"); x.drawImage(lime, 0, 0);
+const D = x.getImageData(0, 0, c.width, c.height), p = D.data, th = parseInt(hex, 16) / 360;
+for (let i = 0; i < p.length; i += 4) { const y = (i / 4 / c.width) | 0; if (y < c.height * .2 || !p[i + 3]) continue;
+const r = p[i] / 255, g = p[i + 1] / 255, b = p[i + 2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), dl = mx - mn || 1e-6;
+let h = mx === r ? ((g - b) / dl) % 6 : mx === g ? (b - r) / dl + 2 : (r - g) / dl + 4; h = ((h / 6) + 1) % 1; const s = (mx - mn) / (mx || 1e-6);
+if (h < .145 || h > .27 || s < .05) continue;
+const ns = Math.min(1, s * ts / .923), nv = Math.min(1, mx * tv / .973), k = Math.floor(th * 6) % 6, f = th * 6 - Math.floor(th * 6);
+const P = nv * (1 - ns), Q = nv * (1 - f * ns), T = nv * (1 - (1 - f) * ns);
+const rgb = [[nv, T, P], [Q, nv, P], [P, nv, T], [P, Q, nv], [T, P, nv], [nv, P, Q]][k]; p[i] = rgb[0] * 255; p[i + 1] = rgb[1] * 255; p[i + 2] = rgb[2] * 255; }
+x.putImageData(D, 0, 0); return c; };
+im.pink = tint("154", .53, .957); im.lilac = tint("10F", .448, .937);
+};
+lime.src = "data:image/webp;base64,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";
+im.snow = (() => { const S = 72, c = document.createElement("canvas"); c.width = c.height = S; const x = c.getContext("2d"), r = S / 2 - 1;
+const g = x.createRadialGradient(S * .36, S * .32, S * .05, S / 2, S / 2, r); g.addColorStop(0, "#ffffff"); g.addColorStop(.6, "#eef3fb"); g.addColorStop(1, "#c7d3e8");
+x.fillStyle = g; x.beginPath(); x.arc(S / 2, S / 2, r, 0, 6.283); x.fill(); x.save(); x.clip();
+for (let i = 0; i < 260; i++) { x.fillStyle = Math.random() < .5 ? "rgba(255,255,255,.7)" : "rgba(150,170,205,.18)"; const a = Math.random() * 6.283, d = Math.sqrt(Math.random()) * r; x.fillRect(S / 2 + Math.cos(a) * d, S / 2 + Math.sin(a) * d, 1.4, 1.4); }
+x.restore(); return c; })();
+const ac = () => (typeof audio === "function" ? audio() : null);
+let last = 0;
+function clink(v, r) {
+const a = ac(); if (!a || a.state !== "running") return; const n = performance.now(); if (n - last < 60) return; last = n;
+const t = a.currentTime, pitch = 1050 * (30 / r) * (0.9 + Math.random() * 0.2), lp = a.createBiquadFilter(), out = a.createGain();
+lp.type = "lowpass"; lp.frequency.value = 2600; out.gain.value = Math.min(.16, v / 9000); lp.connect(out); out.connect(a.destination);
+[[1, 1, .35], [2.76, .28, .18]].forEach(([k, amp, dur]) => { const o = a.createOscillator(), g = a.createGain(); o.frequency.value = pitch * k;
+g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(amp, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + dur); o.connect(g); g.connect(lp); o.start(t); o.stop(t + dur + .05); });
+}
+function puff(v) {
+const a = ac(); if (!a || a.state !== "running") return; const n = performance.now(); if (n - last < 60) return; last = n;
+const len = .14, buf = a.createBuffer(1, Math.floor(a.sampleRate * len), a.sampleRate), ch = buf.getChannelData(0);
+for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / ch.length, 2);
+const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = buf; f.type = "lowpass"; f.frequency.value = 700;
+g.gain.value = Math.min(.45, v / 3000); s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+}
+let count = 0;
+window.barevWinter = {
+mode,
+ball(r, base) {
+if (mode === "snow") return { kind: "snow", cap: 0 };
+const b = (base || "").toUpperCase(), main = b === "#F4729E" ? "pink" : "lime";
+const alt = main === "pink" ? "lime" : (document.body.classList.contains("t-lilac") ? "pink" : "lilac");
+return { kind: (count++ % 4 === 3) ? alt : main, cap: 0 };
+},
+draw(x, b) {
+const w = b.w;
+if (!im[w.kind]) return; if (w.kind === "snow") { x.drawImage(im.snow, -b.r, -b.r, b.r * 2, b.r * 2); return; }
+x.rotate(-b.a + Math.sin(b.a) * .35); const s = b.r / OR.r; x.drawImage(im[w.kind], -OR.cx * s, -OR.cy * s, OR.w * s, OR.h * s);
+},
+cap(x, b, grabbed) {
+const w = b.w; if (w.kind === "snow") return; const sp = Math.hypot(b.vx, b.vy);
+if (sp > 500 || grabbed) w.cap = 0; else if (sp < 30) w.cap = Math.min(1, w.cap + .0012);
+if (w.cap < .03) return;
+const r = b.r, th = r * .2 * w.cap, a0 = Math.PI * 1.22, a1 = Math.PI * 1.78, R = r * 1.03;
+x.save(); x.translate(b.x, b.y); x.fillStyle = "#fff"; x.shadowColor = "rgba(0,0,60,.2)"; x.shadowBlur = 2; x.shadowOffsetY = 1;
+x.beginPath(); x.arc(0, 0, R, a0, a1); const pts = [];
+for (let i = 5; i >= 0; i--) { const t = a0 + (a1 - a0) * i / 5, k = (i === 0 || i === 5) ? 0 : 1, rr = R - th * k * (.8 + .35 * Math.sin(i * 1.7 + r)); pts.push([Math.cos(t) * rr, Math.sin(t) * rr]); }
+for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], q = pts[i]; x.quadraticCurveTo(p[0], p[1] + th * .35, (p[0] + q[0]) / 2, (p[1] + q[1]) / 2 + th * .25); }
+x.closePath(); x.fill(); x.restore();
+},
+hit(b, v) { if (b.w.kind === "snow") puff(v); else clink(v, b.r); if (v > 900) b.w.cap = 0; }
+};
+function flakes(screen) {
+const cv = document.createElement("canvas"); cv.className = "winter-snow";
+cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6"; screen.appendChild(cv);
+const c = cv.getContext("2d"); let W = 0, H = 0, k = 1, F = [];
+const mk = init => ({ x: Math.random() * W, y: init ? Math.random() * H : -4, r: (.7 + Math.random() * 1.9) * k, v: (.35 + Math.random() * .9) * k, p: Math.random() * 6.3, o: .45 + Math.random() * .5 });
+function size() { const r = cv.getBoundingClientRect(); if (!r.width) return; k = devicePixelRatio || 1; W = cv.width = r.width * k; H = cv.height = r.height * k; F = Array.from({ length: 70 }, () => mk(true)); }
+(function loop() {
+if (screen.classList.contains("hidden")) { requestAnimationFrame(loop); return; }
+if (!W || cv.width !== Math.round(cv.getBoundingClientRect().width * (devicePixelRatio || 1))) size();
+c.clearRect(0, 0, W, H); c.fillStyle = "#fff";
+for (const f of F) { f.y += f.v; f.p += .02; f.x += Math.sin(f.p) * .3 * k; if (f.y > H + 4) Object.assign(f, mk(false)); c.globalAlpha = f.o; c.beginPath(); c.arc(f.x, f.y, f.r, 0, 6.283); c.fill(); }
+c.globalAlpha = 1; requestAnimationFrame(loop);
+})();
+}
+function titleSnow(el) {
+el.style.position = "relative";
+const cv = document.createElement("canvas"); cv.setAttribute("aria-hidden", "true");
+cv.style.cssText = "position:absolute;left:-20px;top:-24px;width:calc(100% + 40px);height:calc(100% + 30px);pointer-events:none;z-index:1";
+let letters = [], k = 1, ox = 0, oy = 0, timer = 0, sig = "";
+const ctx = cv.getContext("2d");
+function build() {
+const txt = el.textContent; if (!txt.trim()) { letters = []; sig = ""; return; }
+const er = el.getBoundingClientRect(); if (!er.width) return;
+k = devicePixelRatio || 1; const cr = cv.getBoundingClientRect(); cv.width = cr.width * k; cv.height = cr.height * k; ox = cr.left; oy = cr.top;
+const off = document.createElement("canvas"); off.width = cv.width; off.height = cv.height; const o = off.getContext("2d");
+const cs = getComputedStyle(el); o.font = `${cs.fontWeight} ${parseFloat(cs.fontSize) * k}px ${cs.fontFamily}`;
+const rg = document.createRange(), chars = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n;
+while ((n = walker.nextNode())) for (let i = 0; i < n.length; i++) {
+const ch = n.data[i].toUpperCase(); if (!ch.trim() || ch === "," || ch === "!") continue;
+rg.setStart(n, i); rg.setEnd(n, i + 1); const r = rg.getBoundingClientRect(); if (!r.width) continue;
+const m = o.measureText(ch), base = (r.top - oy) * k + (r.height * k + (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent)) / 2;
+o.fillText(ch, (r.left - ox) * k, base);
+chars.push({ x0: Math.floor((r.left - ox) * k), x1: Math.ceil((r.right - ox) * k), y0: Math.floor(base - m.actualBoundingBoxAscent - 3 * k), y1: Math.ceil(base) });
+}
+const W = off.width, data = o.getImageData(0, 0, W, off.height).data, old = letters; letters = [];
+chars.forEach((c, idx) => {
+const cols = []; for (let x = c.x0; x < c.x1; x++) for (let y = Math.max(0, c.y0); y < c.y1; y++) if (data[(y * W + x) * 4 + 3] > 128) { cols.push({ x, y }); break; }
+if (cols.length < 4) return; const ymin = Math.min(...cols.map(p => p.y)), top = cols.filter(p => p.y - ymin < (c.y1 - c.y0) * .22); if (top.length < 3) return;
+letters.push({ cols: top, ymin, rate: .8 + Math.random() * .5, h: old[letters.length] ? old[letters.length].h : 0 });
+});
+sig = txt + er.width;
+}
+const later = () => { if (!el.contains(cv)) el.appendChild(cv); clearTimeout(timer); timer = setTimeout(build, 250); };
+new MutationObserver(later).observe(el, { childList: true, characterData: true, subtree: true });
+window.addEventListener("resize", later); document.fonts && document.fonts.ready.then(later);
+el.appendChild(cv); later();
+el.addEventListener("pointerdown", () => { letters.forEach(L => L.h = 0); puff(600); });
+(function loop() {
+if (el.offsetParent && letters.length) {
+const max = parseFloat(getComputedStyle(el).fontSize) * .12 * k; ctx.clearRect(0, 0, cv.width, cv.height); ctx.fillStyle = "#fff"; ctx.shadowColor = "rgba(0,0,60,.22)"; ctx.shadowBlur = 2 * k; ctx.shadowOffsetY = k;
+for (const L of letters) {
+L.h = Math.min(max * (.85 + .15 * L.rate), L.h + .018 * k * L.rate); if (L.h < .5) continue;
+const cols = L.cols, n = cols.length, x0 = cols[0].x - L.h * .25, x1 = cols[n - 1].x + L.h * .25;
+ctx.beginPath(); ctx.moveTo(x0, cols[0].y + L.h * .25);
+for (let i = 0; i <= 24; i++) { const t = i / 24, x = x0 + (x1 - x0) * t, sh = Math.sqrt(Math.max(0, 1 - Math.pow(2 * t - 1, 2)));
+let ci = Math.round((x - cols[0].x) / ((cols[n - 1].x - cols[0].x) || 1) * (n - 1)); ci = Math.max(0, Math.min(n - 1, ci));
+const base = Math.min(cols[ci].y, L.ymin + L.h * .6); ctx.lineTo(x, base - L.h * (.35 + .65 * sh) + Math.sin(x * .11 + L.rate * 9) * L.h * .06); }
+ctx.lineTo(x1, cols[n - 1].y + L.h * .25); for (let i = n - 1; i >= 0; i -= 2) ctx.lineTo(cols[i].x, cols[i].y + 1.5 * k);
+ctx.closePath(); ctx.fill();
+}
+}
+requestAnimationFrame(loop);
+})();
+}
+function start() {
+const ph = document.querySelector(".phone"); if (!ph) return setTimeout(start, 200);
+ph.querySelectorAll(".screen.ring, .screen.talk").forEach(flakes);
+ph.querySelectorAll(".ring .title, .talk .title.said").forEach(titleSnow);
+}
+start();
+})();
 </script>
 </body>
 </html>
