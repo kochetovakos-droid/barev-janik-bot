@@ -164,7 +164,7 @@
     padding-bottom:clamp(96px, calc(var(--screen-height, 100vh) * .16), 128px)}
   .talk-content .bar, .talk-content .call-status, .talk-content .title,
   .chip b, .chip span, .send b, .send span, .send em {position:relative;z-index:5}
-  .talk canvas.balls {top:0;bottom:max(12px, env(safe-area-inset-bottom, 0px));height:calc(100% - max(12px, env(safe-area-inset-bottom, 0px)));z-index:4}
+  .talk canvas.balls {top:0;bottom:0;height:100%;z-index:4}
   @media(max-width:360px), (max-height:620px) {
     .talk .title {font-size:clamp(32px, 10.5vw, 44px);margin-top:10px}
     .talk .grid {margin-top:12px}
@@ -706,7 +706,7 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
 /* BAREV, JANIK winter: Dec 1 - Jan 13 ornaments, Jan 14 - Feb 28 snowballs; snow + caps on the big title. ?winter=xmas|snow|off to test. */
 (function () {
 const now = new Date(Date.now() + 4 * 3600e3), m = now.getUTCMonth(), d = now.getUTCDate();
-let mode = (m === 11 || (m === 0 && d < 14)) ? "xmas" : ((m === 0 && d >= 14) || m === 1) ? "snow" : "off";
+let mode = ((m === 10 && d >= 28) || m === 11 || (m === 0 && d < 14)) ? "xmas" : ((m === 0 && d >= 14) || m === 1) ? "snow" : "off";
 const q = new URLSearchParams(location.search).get("winter"); if (q === "xmas" || q === "snow" || q === "off") mode = q;
 if (mode === "off") return;
 const OR = { cx: 41.95, cy: 68.97, r: 39.28, w: 84, h: 110 }, im = {};
