@@ -14,6 +14,7 @@ body{font-family:"Futura PT",sans-serif}
 .sub{font-size:14px;font-weight:500;margin-top:6px}
 .hint{position:absolute;left:0;right:0;bottom:150px;text-align:center;color:#fff;font-size:16px;font-weight:500;opacity:.85;z-index:3;pointer-events:none;transition:opacity .6s}
 canvas{position:absolute;inset:0;width:100%;height:100%}
+.tree-snow{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
 .win{position:absolute;inset:0;overflow-y:auto;background:#067B35;color:#F4729E;padding:60px 24px 30px;display:flex;flex-direction:column;z-index:5;opacity:0;pointer-events:none;transition:.4s}
 .win.show{opacity:1;pointer-events:auto}
 .win > *{flex-shrink:0}
@@ -31,7 +32,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 .win .reward-consent input{flex:none;width:22px;height:22px;accent-color:#D9F813}
 .win .reward-consent .btn{margin-top:12px}
 .win .note{font-size:13px;opacity:.85}
-</style></head><body><div class="game-viewport"><div class="game-safe-area">
+</style></head><body><div class="game-viewport"><canvas class="tree-snow" id="tree-snow" aria-hidden="true"></canvas><div class="game-safe-area">
 <a class="game-back" id="game-back" href="/?view=menu" data-copy="← Back">← Back</a>
 <div class="ph" id="ph">
 <div class="hud"><div class="top" data-copy="Dress the tree">Dress the tree</div><div class="meter" id="m"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="sub" id="sub">0 of 8</div></div>
@@ -65,13 +66,32 @@ document.getElementById("game-back").addEventListener("click", e => {
 });
 const ph = document.getElementById("ph"), c = document.getElementById("c"), x = c.getContext("2d");
 const safeArea = ph.parentElement, viewport = safeArea.parentElement, W = 340, H = 700, GOAL = 8;
+const snow = document.getElementById("tree-snow"), snowContext = snow.getContext("2d"), snowflakes = [];
+let snowWidth = 0, snowHeight = 0, snowTime = 0;
 let dpr = 1, scale = 1;
 function size() {
   const v = window.visualViewport; viewport.style.height = v && v.scale === 1 ? v.height + "px" : "";
   scale = Math.min(safeArea.clientWidth / W, safeArea.clientHeight / H) || 1; ph.style.setProperty("--game-scale", scale);
   dpr = (devicePixelRatio || 1) * scale; c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); x.setTransform(c.width / W, 0, 0, c.height / H, 0, 0);
+  const width = viewport.clientWidth, height = viewport.clientHeight, ratio = Math.min(devicePixelRatio || 1, 2);
+  for (const flake of snowflakes) { flake.x *= width / (snowWidth || width); flake.y *= height / (snowHeight || height); }
+  snowWidth = width; snowHeight = height; snow.width = Math.round(width * ratio); snow.height = Math.round(height * ratio);
+  snowContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+  if (!snowflakes.length) for (let i = 0; i < 70; i++) snowflakes.push({x: Math.random() * width, y: Math.random() * height, r: 1.2 + Math.random() * 2.6, speed: 21 + Math.random() * 39, phase: Math.random() * Math.PI * 2, opacity: .5 + Math.random() * .45});
 }
 size(); window.visualViewport?.addEventListener("resize", size); window.addEventListener("resize", size);
+function drawSnow(time) {
+  const dt = snowTime ? Math.min((time - snowTime) / 1000, .05) : 0; snowTime = time;
+  snowContext.clearRect(0, 0, snowWidth, snowHeight); snowContext.fillStyle = "#fff";
+  snowContext.shadowColor = "rgba(255,255,255,.6)"; snowContext.shadowBlur = 1.5;
+  for (const flake of snowflakes) {
+    flake.y += flake.speed * dt; flake.phase += dt * 1.2; flake.x += Math.sin(flake.phase) * 18 * dt;
+    if (flake.y > snowHeight + 8) { flake.y = -8; flake.x = Math.random() * snowWidth; }
+    if (flake.x < -8) flake.x = snowWidth + 8; else if (flake.x > snowWidth + 8) flake.x = -8;
+    snowContext.globalAlpha = flake.opacity; snowContext.beginPath(); snowContext.arc(flake.x, flake.y, flake.r, 0, Math.PI * 2); snowContext.fill();
+  }
+  snowContext.globalAlpha = 1;
+}
 
 const OR = { cx: 41.95, cy: 68.97, r: 39.28, w: 84, h: 110 }, IM = {}, KINDS = ["lime", "pink", "lilac"];
 const lime = new Image();
@@ -140,6 +160,7 @@ function frame(time) {
   drawBasket(x);
   for (const o of tray) if (o !== drag) drawOrn(x, o, .95);
   if (drag) drawOrn(x, drag, 1.15);
+  drawSnow(time);
   requestAnimationFrame(frame);
 }
 
