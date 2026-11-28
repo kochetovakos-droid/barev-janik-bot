@@ -10,6 +10,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import (CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup,
                            InlineQuery, InlineQueryResultPhoto, InputMediaPhoto, Message)
 from game import Game
+from tree import Tree
 from game_rewards import Rewards
 from game_telegram import register_reward_handlers
 from postcard_stats import PostcardStats
@@ -92,6 +93,7 @@ def is_admin(m):
 DATA.mkdir(parents=True, exist_ok=True)
 rewards = Rewards(DATA / "game-rewards.sqlite3")
 game = Game(rewards, lambda: ME["u"])
+tree = Tree(rewards, lambda: ME["u"])
 register_reward_handlers(dp, rewards, bot, lambda: rewards.admin_chats(ADMINS), is_admin, lambda: ME["u"])
 postcard_stats = PostcardStats(DATA / "postcard-stats.sqlite3", load, DOMAIN)
 postcard_stats.register_telegram(dp, is_admin)
@@ -221,6 +223,7 @@ async def main():
     app.router.add_get(r"/music/{filename:barev-(?:one|two)\.mp3}", music)
     app.router.add_post("/api/postcard-events", postcard_stats.web_event)
     game.routes(app)
+    tree.routes(app)
     runner = web.AppRunner(app); await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 8080))).start()
     await dp.start_polling(bot)

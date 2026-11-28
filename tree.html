@@ -43,6 +43,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
   <button class="btn lime" id="share" type="button" data-copy="Send my tree as a postcard →">Send my tree as a postcard →</button>
   <p data-copy="🎁 Pick up your free paper postcard.">🎁 Pick up your free paper postcard.</p><p data-copy="📍 BAREV, JANIK · 8 Pap Tagavor St., Yerevan, in the courtyard">📍 BAREV, JANIK · 8 Pap Tagavor St., Yerevan, in the courtyard</p><p data-copy="🕛 12:00–20:00">🕛 12:00–20:00</p>
   <p class="note" data-copy="One paper postcard per person, for either game.">One paper postcard per person, for either game.</p>
+  <p class="note" id="save-status" role="status" hidden></p>
+  <button class="btn" id="retry" type="button" hidden data-copy="Try again →">Try again →</button>
   <button class="btn" id="claim" type="button" data-copy="Get your QR code in Telegram →">Get your QR code in Telegram →</button>
   <div class="reward-consent" id="reward-consent" hidden>
     <label for="reward-agree"><input id="reward-agree" type="checkbox" autocomplete="off"><span data-copy="I agree that BAREV, JANIK may store my phone number, Telegram ID and username (if I have one) to issue my prize.">I agree that BAREV, JANIK may store my phone number, Telegram ID and username (if I have one) to issue my prize.</span></label>
@@ -53,7 +55,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
   <button class="btn lime" id="again" type="button" data-copy="Dress another tree →">Dress another tree →</button>
 </div>
 </div></div></div>
-<script src="/ui-language.js?v=3"></script>
+<script src="/ui-language.js?v=tree1"></script>
 <script>
 {
 const language = typeof createBarevLanguage === "function" ? createBarevLanguage(document.body, () => meterUpdate()) : { text: (s, v = {}) => s.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? "") };
@@ -102,10 +104,9 @@ const STAR = { x: 170, y: 126 }, POT = { y: 462 };
 const inTree = (px, py) => TIERS.some(t => py > t.ay + 10 && py < t.by - 6 && Math.abs(px - t.ax) < (py - t.ay) / (t.by - t.ay) * t.hw - 10);
 const SLOTS = [64, 117, 170, 223, 276].map(sx => ({ x: sx, y: 618 }));
 const R = 22;
-let hung = [], tray = [], drag = null, won = false, glow = 0, t0 = performance.now(), flakes = [];
+let hung = [], tray = [], drag = null, won = false, glow = 0, t0 = performance.now();
 const rnd = () => KINDS[(Math.random() * 3) | 0];
 function reset() { hung = []; won = false; glow = 0; tray = SLOTS.map(s => ({ kind: rnd(), x: s.x, y: s.y, hx: s.x, hy: s.y, a: 0, va: 0 })); meterUpdate(); hint.style.opacity = .85; startSession(); }
-for (let i = 0; i < 45; i++) flakes.push({ x: Math.random() * W, y: Math.random() * H, r: .6 + Math.random() * 1.6, v: .25 + Math.random() * .6, p: Math.random() * 6 });
 
 function drawOrn(g, o, s = 1) {
   const img = IM[o.kind]; if (!img) return; g.save(); g.translate(o.x, o.y); g.rotate(o.a || 0);
@@ -138,7 +139,6 @@ function frame(time) {
   for (const o of hung) drawOrn(x, o);
   drawBasket(x);
   for (const o of tray) if (o !== drag) drawOrn(x, o, .95);
-  x.fillStyle = "#fff"; for (const f of flakes) { f.y += f.v; f.p += .02; f.x += Math.sin(f.p) * .25; if (f.y > H + 3) { f.y = -3; f.x = Math.random() * W; } x.globalAlpha = .7; x.beginPath(); x.arc(f.x, f.y, f.r, 0, 6.3); x.fill(); } x.globalAlpha = 1;
   if (drag) drawOrn(x, drag, 1.15);
   requestAnimationFrame(frame);
 }
@@ -170,20 +170,43 @@ const meter = [...document.querySelectorAll("#m i")], sub = document.getElementB
 function meterUpdate() { const n = Math.min(hung.length, GOAL); meter.forEach((m, i) => m.classList.toggle("on", i < n)); sub.textContent = language.text("{n} of 8", { n }); }
 const winPanel = document.getElementById("win"), claimButton = document.getElementById("claim"), consentBox = document.getElementById("reward-consent"),
       agree = document.getElementById("reward-agree"), marketing = document.getElementById("marketing-agree"), tg = document.getElementById("claim-telegram");
-let claimUrl = null, sessionReady = null;
-function startSession() { sessionReady = fetch("/tree/session", { method: "POST", credentials: "same-origin" }).catch(() => {}); t0 = performance.now(); }
+let claimUrl = null, sessionReady = null, round = 0, savingRound = null;
+const saveStatus = document.getElementById("save-status"), retry = document.getElementById("retry");
+function startSession(newRound = true) {
+  if (newRound) { round++; claimUrl = null; }
+  sessionReady = fetch("/tree/session", { method: "POST", credentials: "same-origin" })
+    .then(r => { if (!r.ok) throw new Error("session"); t0 = performance.now(); return true; }).catch(() => false);
+}
 function syncTg() { const ok = agree.checked && claimUrl; tg.setAttribute("aria-disabled", ok ? "false" : "true"); if (ok) tg.href = claimUrl + (marketing.checked ? "_m1" : "_m0"); else tg.removeAttribute("href"); }
 agree.addEventListener("change", syncTg); marketing.addEventListener("change", syncTg);
 tg.addEventListener("click", e => { if (tg.getAttribute("aria-disabled") === "true") e.preventDefault(); });
 claimButton.addEventListener("click", () => { claimButton.hidden = true; consentBox.hidden = false; syncTg(); });
 async function finish() {
   won = true; chord();
-  const wait = Math.max(0, 6500 - (performance.now() - t0));
-  await sessionReady; await new Promise(r => setTimeout(r, wait));
-  try { const r = await fetch("/tree/win", { method: "POST", credentials: "same-origin" }); if (r.ok) claimUrl = (await r.json()).claim; } catch (e) {}
-  claimButton.hidden = !claimUrl; consentBox.hidden = true; agree.checked = false; marketing.checked = false; syncTg();
-  setTimeout(() => { winPanel.classList.add("show"); winPanel.inert = false; }, 900);
+  claimButton.hidden = true; consentBox.hidden = true; agree.checked = false; marketing.checked = false; syncTg();
+  const current = round;
+  setTimeout(() => { if (current !== round) return; winPanel.classList.add("show"); winPanel.inert = false; }, 1400);
+  saveWin();
 }
+async function saveWin() {
+  if (savingRound === round) return;
+  const current = round; savingRound = current;
+  retry.hidden = true; saveStatus.hidden = false; saveStatus.textContent = language.text("Saving your tree…");
+  try {
+    if (!await sessionReady) { startSession(false); if (!await sessionReady) throw new Error("session"); }
+    await new Promise(r => setTimeout(r, Math.max(0, 6200 - (performance.now() - t0))));
+    if (!won || current !== round) return;
+    const response = await fetch("/tree/win", { method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ornaments: hung.map(({x, y}) => ({x, y}))}) });
+    if (!response.ok) { if (response.status === 401) startSession(false); throw new Error("win"); }
+    const result = await response.json(); if (!result.claim) throw new Error("claim");
+    if (current !== round) return;
+    claimUrl = result.claim; claimButton.hidden = false; saveStatus.hidden = true; syncTg();
+  } catch (e) {
+    if (current !== round) return;
+    saveStatus.textContent = language.text("Your tree is ready. Reconnect and try again to collect your prize."); retry.hidden = false;
+  } finally { if (savingRound === current) savingRound = null; }
+}
+retry.addEventListener("click", saveWin);
 document.getElementById("again").addEventListener("click", () => { winPanel.classList.remove("show"); winPanel.inert = true; reset(); });
 
 async function postcard() {
@@ -191,7 +214,7 @@ async function postcard() {
   g.fillStyle = "#1433A2"; g.fillRect(0, 0, 720, 894);
   g.save(); g.beginPath(); g.rect(0, 0, 720, 894); g.clip(); g.scale(s, s); g.translate(0, -oy);
   drawTree(g, performance.now()); for (const o of hung) drawOrn(g, o);
-  g.fillStyle = "#fff"; g.globalAlpha = .7; for (const f of flakes) { g.beginPath(); g.arc(f.x, f.y, f.r, 0, 6.3); g.fill(); } g.globalAlpha = 1; g.restore();
+  g.restore();
   g.fillStyle = "#D9F813"; g.font = '800 54px "Futura PT"'; g.textAlign = "left"; g.fillText("BAREV,", 40, 92); g.fillText("JANIK!", 40, 146);
   g.fillStyle = "#fff"; g.fillRect(0, 894, 720, 170);
   try { const band = new Image(); band.src = "/cards/plain_blue.jpg?v=" + Date.now(); await band.decode(); g.drawImage(band, 0, 894, 720, 170, 0, 894, 720, 170); } catch (e) {}

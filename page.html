@@ -132,6 +132,8 @@
   .msg:focus-visible { outline: 2px solid var(--title); outline-offset: 3px; }
   .catalogue p { margin: 12px 24px 24px; font-size: 19px; color: var(--ink); }
   .catalogue .go { display: block; margin: 0 24px; text-decoration: none; }
+  .catalogue .go + .go { margin-top: 12px; }
+  .catalogue .prize-limit { font-size: 15px; margin-top: 20px; }
   body { padding: 0; background: var(--bg); }
   .row, .col { display: block; }
   .phone { width: 100%; max-width: 480px; height: var(--screen-height, 100vh); height: var(--screen-height, 100dvh);
@@ -187,6 +189,9 @@
   .music-screen .music-track + .music-track {border-top:2px solid var(--title)}
   .music-screen .music-track span {font-size:22px}
   .music-screen .music-track[aria-pressed="true"] {background:var(--card);color:var(--cardInk)}
+  .music-screen .bar, .music-screen h2, .music-screen .music-art,
+  .music-screen .music-list {position:relative;z-index:5}
+  .music-screen .music-list {padding-bottom:110px}
   .music-art {animation:record-spin 3s linear infinite;animation-play-state:paused}
   .music-screen.playing .music-art {animation-play-state:running}
   @media(prefers-reduced-motion:reduce){.music-art{animation:none}}
@@ -198,6 +203,7 @@
 <div class="row" id="row"></div>
 <audio id="music" preload="none"></audio>
 <iframe class="game-frame" id="game-frame" title="Shoot a barev" hidden></iframe>
+<iframe class="game-frame" id="tree-frame" title="Dress the tree" hidden></iframe>
 
 <template id="tpl">
   <div class="phone">
@@ -279,13 +285,15 @@
     <div class="screen pick catalogue hidden">
       <div class="bar"><button class="back" data-copy="← Back">← Back</button></div>
       <h2 data-copy="Catalogue">Catalogue</h2>
-      <p data-copy="Our catalogue is coming soon. In the meantime, play Shoot a barev and win a printed postcard!">Our catalogue is coming soon. In the meantime, play Shoot a barev and win a printed postcard!</p>
-      <a class="go" href="/game" data-copy="Play →">Play →</a>
+      <p data-copy="Our catalogue is coming soon. For now, choose a game and win a paper postcard!">Our catalogue is coming soon. For now, choose a game and win a paper postcard!</p>
+      <a class="go" href="/game" data-game="game" data-copy="Shoot a barev →">Shoot a barev →</a>
+      <a class="go" href="/tree" data-game="tree" data-copy="Dress the tree →">Dress the tree →</a>
+      <p class="prize-limit" data-copy="One phone number and Telegram account — one paper postcard across both games. You can keep playing as much as you like.">One phone number and Telegram account — one paper postcard across both games. You can keep playing as much as you like.</p>
     </div>
   </div>
 </template>
 
-<script src="/ui-language.js?v=2"></script>
+<script src="/ui-language.js?v=tree1"></script>
 <script>
 const THEMES = [["t-blue","Blue + lime","plain_blue"],["t-lilac","Lilac + lime","plain_lilac"],["t-green","Green + pink","plain_green"]];
 const PHONE = "+37477881576";
@@ -529,7 +537,15 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
     updatePlayer();
   };
   const musicScreen = $(".music-screen");
-  const syncMusic = () => musicScreen.classList.toggle("hidden", location.hash !== "#music");
+  const musicCanvas = document.createElement("canvas"); musicCanvas.className = "balls";
+  musicCanvas.setAttribute("aria-hidden", "true"); musicScreen.appendChild(musicCanvas);
+  const musicPit = new Pit(musicScreen, musicCanvas, ph);
+  let musicToysStarted = false;
+  const syncMusic = () => {
+    const open = location.hash === "#music";
+    musicScreen.classList.toggle("hidden", !open);
+    if (open && !musicToysStarted) { musicToysStarted = true; musicPit.drop(9); }
+  };
   record.onclick = () => {
     history.pushState({barevMusic: true}, "", "#music");
     syncMusic();
@@ -576,30 +592,32 @@ Promise.all([document.fonts.load('800 20px "Futura PT"').catch(() => {}), fetch(
   const catalogue = $(".catalogue");
   $(".open-catalogue").onclick = () => catalogue.classList.remove("hidden");
   $(".catalogue .back").onclick = () => catalogue.classList.add("hidden");
-  const gameFrame = document.getElementById("game-frame"), playGame = $(".catalogue a.go");
+  const gameFrames = { game: document.getElementById("game-frame"), tree: document.getElementById("tree-frame") };
   const syncGame = () => {
-    const open = location.hash === "#game";
-    const wasOpen = !gameFrame.hidden;
+    const name = location.hash.slice(1), frame = gameFrames[name];
+    const open = !!frame;
+    const wasOpen = Object.values(gameFrames).some(item => !item.hidden);
     if (open) {
       if (talk.classList.contains("hidden")) enterMenu(false);
       catalogue.classList.add("hidden");
-      if (!gameFrame.hasAttribute("src")) gameFrame.src = "/game/board";
+      if (!frame.hasAttribute("src")) frame.src = "/" + name + "/board";
     }
     ph.inert = open;
-    gameFrame.hidden = !open;
-    if (open && !wasOpen) gameFrame.focus();
+    for (const item of Object.values(gameFrames)) item.hidden = item !== frame;
+    if (open && !wasOpen) frame.focus();
     if (!open && wasOpen) $(".open-catalogue").focus({preventScroll: true});
   };
-  playGame.onclick = event => {
+  for (const playGame of ph.querySelectorAll(".catalogue a[data-game]")) playGame.onclick = event => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    history.pushState({barevGame: true}, "", "#game");
+    history.pushState({barevGame: true}, "", "#" + playGame.dataset.game);
     syncGame();
   };
   window.addEventListener("hashchange", syncGame);
   window.addEventListener("message", event => {
-    if (event.origin !== location.origin || event.source !== gameFrame.contentWindow ||
-        event.data !== "barev:back-to-menu" || gameFrame.hidden) return;
+    const frame = gameFrames[location.hash.slice(1)];
+    if (event.origin !== location.origin || !frame || event.source !== frame.contentWindow ||
+        event.data !== "barev:back-to-menu" || frame.hidden) return;
     if (history.state?.barevGame) history.back();
     else {
       history.replaceState(null, "", location.pathname + location.search);
@@ -777,17 +795,18 @@ function flakes(screen) {
 const cv = document.createElement("canvas"); cv.className = "winter-snow";
 cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6"; screen.appendChild(cv);
 const c = cv.getContext("2d"); let W = 0, H = 0, k = 1, F = [];
-const mk = init => ({ x: Math.random() * W, y: init ? Math.random() * H : -4, r: (.7 + Math.random() * 1.9) * k, v: (.35 + Math.random() * .9) * k, p: Math.random() * 6.3, o: .45 + Math.random() * .5 });
+const mk = init => ({ x: Math.random() * W, y: init ? Math.random() * H : -8 * k, r: (1.2 + Math.random() * 2.6) * k, v: (.35 + Math.random() * .65) * k, p: Math.random() * 6.3, o: .5 + Math.random() * .45 });
 function size() { const r = cv.getBoundingClientRect(); if (!r.width) return; k = devicePixelRatio || 1; W = cv.width = r.width * k; H = cv.height = r.height * k; F = Array.from({ length: 70 }, () => mk(true)); }
 (function loop() {
-if (screen.classList.contains("hidden")) { requestAnimationFrame(loop); return; }
-if (!W || cv.width !== Math.round(cv.getBoundingClientRect().width * (devicePixelRatio || 1))) size();
-c.clearRect(0, 0, W, H); c.fillStyle = "#fff";
+if (screen.classList.contains("hidden") || screen.inert) { requestAnimationFrame(loop); return; }
+const bounds = cv.getBoundingClientRect(), ratio = devicePixelRatio || 1;
+if (!W || cv.width !== Math.round(bounds.width * ratio) || cv.height !== Math.round(bounds.height * ratio)) size();
+c.clearRect(0, 0, W, H); c.fillStyle = "#fff"; c.shadowColor = "rgba(255,255,255,.6)"; c.shadowBlur = 1.5 * k;
 for (const f of F) { f.y += f.v; f.p += .02; f.x += Math.sin(f.p) * .3 * k; if (f.y > H + 4) Object.assign(f, mk(false)); c.globalAlpha = f.o; c.beginPath(); c.arc(f.x, f.y, f.r, 0, 6.283); c.fill(); }
 c.globalAlpha = 1; requestAnimationFrame(loop);
 })();
 }
-function titleSnow(el) {
+function titleSnow(el, fluffy = false) {
 el.style.position = "relative";
 const cv = document.createElement("canvas"); cv.setAttribute("aria-hidden", "true");
 cv.style.cssText = "position:absolute;left:-20px;top:-24px;width:calc(100% + 40px);height:calc(100% + 30px);pointer-events:none;z-index:1";
@@ -822,9 +841,9 @@ el.appendChild(cv); later();
 el.addEventListener("pointerdown", () => { letters.forEach(L => L.h = 0); puff(600); });
 (function loop() {
 if (el.offsetParent && letters.length) {
-const max = parseFloat(getComputedStyle(el).fontSize) * .12 * k; ctx.clearRect(0, 0, cv.width, cv.height); ctx.fillStyle = "#fff"; ctx.shadowColor = "rgba(0,0,60,.22)"; ctx.shadowBlur = 2 * k; ctx.shadowOffsetY = k;
+const max = parseFloat(getComputedStyle(el).fontSize) * (fluffy ? .24 : .12) * k; ctx.clearRect(0, 0, cv.width, cv.height); ctx.fillStyle = "#fff"; ctx.shadowColor = "rgba(0,0,60,.22)"; ctx.shadowBlur = 2 * k; ctx.shadowOffsetY = k;
 for (const L of letters) {
-L.h = Math.min(max * (.85 + .15 * L.rate), L.h + .018 * k * L.rate); if (L.h < .5) continue;
+L.h = Math.min(max * (.85 + .15 * L.rate), L.h + (fluffy ? .035 : .018) * k * L.rate); if (L.h < .5) continue;
 const cols = L.cols, n = cols.length, x0 = cols[0].x - L.h * .25, x1 = cols[n - 1].x + L.h * .25;
 ctx.beginPath(); ctx.moveTo(x0, cols[0].y + L.h * .25);
 for (let i = 0; i <= 24; i++) { const t = i / 24, x = x0 + (x1 - x0) * t, sh = Math.sqrt(Math.max(0, 1 - Math.pow(2 * t - 1, 2)));
@@ -837,10 +856,41 @@ ctx.closePath(); ctx.fill();
 requestAnimationFrame(loop);
 })();
 }
+function postcardSnow(ph) {
+const cards = ph.querySelector(".cards"), pick = cards.closest(".screen");
+const cv = document.createElement("canvas"); cv.setAttribute("aria-hidden", "true");
+cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6";
+ph.appendChild(cv); const ctx = cv.getContext("2d"); let height = 0;
+(function loop() {
+const rect = cv.getBoundingClientRect(), ratio = devicePixelRatio || 1;
+const width = Math.round(rect.width * ratio), fullHeight = Math.round(rect.height * ratio);
+if (cv.width !== width || cv.height !== fullHeight) { cv.width = width; cv.height = fullHeight; }
+ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.clearRect(0, 0, rect.width, rect.height);
+if (!pick.classList.contains("hidden") && !ph.inert) {
+height = Math.min(8, height + .025);
+const bounds = cards.getBoundingClientRect(); ctx.save(); ctx.beginPath();
+ctx.rect(bounds.left - rect.left, bounds.top - rect.top, bounds.width, bounds.height); ctx.clip();
+ctx.fillStyle = "#fff"; ctx.shadowColor = "rgba(20,51,162,.18)"; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
+cards.querySelectorAll("img").forEach((image, index) => {
+const r = image.getBoundingClientRect(), left = r.left - rect.left, top = r.top - rect.top;
+if (r.bottom < bounds.top || r.top > bounds.bottom || !r.width) return;
+ctx.beginPath(); ctx.moveTo(left + 3, top + 2);
+for (let i = 0; i <= 24; i++) {
+const u = i / 24, puff = Math.sqrt(Math.max(0, Math.sin(Math.PI * u)));
+ctx.lineTo(left + 3 + (r.width - 6) * u, top - height * puff * (.85 + .18 * Math.sin(u * 25 + index)));
+}
+ctx.lineTo(left + r.width - 3, top + 2); ctx.closePath(); ctx.fill();
+}); ctx.restore();
+}
+requestAnimationFrame(loop);
+})();
+}
 function start() {
 const ph = document.querySelector(".phone"); if (!ph) return setTimeout(start, 200);
-ph.querySelectorAll(".screen.ring, .screen.talk").forEach(flakes);
-ph.querySelectorAll(".ring .title, .talk .title.said").forEach(titleSnow);
+flakes(ph);
+ph.querySelectorAll(".ring .title, .talk .title.said").forEach(el => titleSnow(el));
+ph.querySelectorAll(".pick h2").forEach(el => titleSnow(el, true));
+postcardSnow(ph);
 }
 start();
 })();

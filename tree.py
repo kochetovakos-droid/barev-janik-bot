@@ -5,6 +5,7 @@ Telegram claim (game_rewards.claim_after_consent) issues one paper postcard
 per phone number and per Telegram account, whichever game the ticket came from.
 """
 import re
+import math
 import secrets
 import time
 from contextlib import closing
@@ -16,7 +17,29 @@ TREE_TEMPLATE = Path(__file__).with_name("tree.html")
 COOKIE_NAME = "barev_tree"
 SESSION_AGE = 3600
 MIN_SECONDS = 6
+ORNAMENT_COUNT = 8
 TOKEN_FORMAT = re.compile(r"[A-Za-z0-9_-]{32}")
+
+
+def complete_tree(ornaments):
+    """Accept eight separate ornaments hung on the visible branches."""
+    if not isinstance(ornaments, list) or len(ornaments) != ORNAMENT_COUNT:
+        return False
+    points = []
+    for ornament in ornaments:
+        if not isinstance(ornament, dict):
+            return False
+        x, y = ornament.get("x"), ornament.get("y")
+        if any(type(value) not in (int, float) or not math.isfinite(value) for value in (x, y)):
+            return False
+        if not any(top + 10 < y < bottom - 6 and abs(x - 170) <
+                   (y - top) / (bottom - top) * width - 10
+                   for top, bottom, width in ((140, 262, 74), (205, 352, 110), (280, 455, 146))):
+            return False
+        if any(math.hypot(x - px, y - py) < 37.4 for px, py in points):
+            return False
+        points.append((x, y))
+    return True
 
 
 class Tree:
@@ -59,6 +82,12 @@ class Tree:
         token = request.cookies.get(COOKIE_NAME, "")
         if not TOKEN_FORMAT.fullmatch(token):
             raise web.HTTPUnauthorized()
+        try:
+            payload = await request.json()
+        except (ValueError, UnicodeDecodeError):
+            raise web.HTTPBadRequest()
+        if not isinstance(payload, dict) or not complete_tree(payload.get("ornaments")):
+            raise web.HTTPBadRequest()
         now = time.time()
         with closing(self.rewards.connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
